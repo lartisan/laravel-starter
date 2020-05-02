@@ -1,0 +1,19 @@
+@import "tailwindcss/base";
+
+@import "tailwindcss/components";
+
+/* @media (min-width: 640px) {
+    table {
+        display: inline-table !important;
+    }
+
+    thead tr:not(:first-child) {
+        display: none !important;
+    }
+} */
+
+@import "tailwindcss/utilities";
+
+.spinner {
+    position: absolute;
+}
