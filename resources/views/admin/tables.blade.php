@@ -9,7 +9,7 @@
         <article class="w-full px-6 md:px-8 py-8 md:py-12 rounded-lg bg-white shadow-lg overflow-scroll">
 			<h2 class="text-2xl font-hairline font-sans mb-6">Example Table</h2>
 
-            <table class="">
+            <table class="w-full">
                 <thead class="text-gray-600">
                     <tr class="border-b border-gray-200">
                         @foreach (config('lartisan.tableData.headings') as $heading)

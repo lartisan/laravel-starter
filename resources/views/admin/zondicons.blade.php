@@ -1,5 +1,5 @@
 @extends('admin.layouts.app', [
-    'pageName' => 'Typography'
+    'pageName' => 'Icons'
 ])
 
 @section('content')

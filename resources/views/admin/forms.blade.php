@@ -1,5 +1,5 @@
 @extends('admin.layouts.app', [
-    'pageName' => 'Portfolio'
+    'pageName' => 'Forms'
 ])
 
 @section('content')
