@@ -22,17 +22,17 @@ Make sure to run `php artisan migrate --seed` for the above credentials to be av
 
 ## Demo
 
-| Login                                                                         | Register                                                                               | Profile                                                                             |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [![Login](/public/img/screens/login.png)](https://starter.lartisan.dev/login) | [![Register](/public/img/screens/register.png)](https://starter.lartisan.dev/register) | [![Profile](/public/img/screens/profile.png)](https://starter.lartisan.dev/profile) |
+| Login                                                                         | Register                                                                               | Profile                                                                                   |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [![Login](/public/img/screens/login.png)](https://starter.lartisan.dev/login) | [![Register](/public/img/screens/register.png)](https://starter.lartisan.dev/register) | [![Profile](/public/img/screens/profile.png)](https://starter.lartisan.dev/admin/profile) |
 
-| Form Example                                                                 | Table Example                                                                     |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [![Login](/public/img/screens/form.png)](https://starter.lartisan.dev/forms) | [![Register](/public/img/screens/table.png)](https://starter.lartisan.dev/tables) |
+| Form Example                                                                       | Table Example                                                                           |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [![Login](/public/img/screens/form.png)](https://starter.lartisan.dev/admin/forms) | [![Register](/public/img/screens/table.png)](https://starter.lartisan.dev/admin/tables) |
 
-| Entypo+                                                                                 | Heroicons UI                                                                                 | Zondicons                                                                                 |
-| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [![Entypo+](/public/img/screens/entypo.png)](https://starter.lartisan.dev/entypo-icons) | [![Heroicons UI](/public/img/screens/heroicons.png)](https://starter.lartisan.dev/heroicons) | [![Zondicons](/public/img/screens/zondicons.png)](https://starter.lartisan.dev/zondicons) |
+| Entypo+                                                                                       | Heroicons UI                                                                                       | Zondicons                                                                                       |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [![Entypo+](/public/img/screens/entypo.png)](https://starter.lartisan.dev/admin/entypo-icons) | [![Heroicons UI](/public/img/screens/heroicons.png)](https://starter.lartisan.dev/admin/heroicons) | [![Zondicons](/public/img/screens/zondicons.png)](https://starter.lartisan.dev/admin/zondicons) |
 
 ## License
 
