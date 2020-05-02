@@ -5,6 +5,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title>{{ env('APP_NAME') }}</title>
+        
+        <!-- Favicons -->
+        <link href="{{ asset('img/favicon.png') }}" rel="icon">
+        <link href="{{ asset('img/apple-touch-icon.png') }}" rel="apple-touch-icon">
 
         <!-- Fonts -->
         <link href="https://fonts.googleapis.com/css?family=Nunito:200,600" rel="stylesheet">
