@@ -6,7 +6,7 @@
 
         <!-- Cards -->
         <section class="cards p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 -mt-16">
-            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center">
+            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center transition duration-500 ease-in-out transform hover:-translate-y-2 hover:scale-105">
                 <div class="icon relative rounded-full w-24 h-24 mb-4 items-center align-middle bg-gray-200 overflow-hidden">
                     <svg class="absolute p-8 fill-current text-red-600" viewBox="0 0 20 20"><path d="M18 3H2C.899 3 0 3.9 0 5v10c0 1.1.899 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 12H2V9h16v6zm0-9H2V5h16v1zM4 11.1v.6h.6v-.6H4zm3.6 1.199v.601h1.2v-.601h.6v-.6h.6v-.6H8.8v.6h-.601v.6H7.6zm2.4.601v-.601h-.601v.601H10zm-3 0v-.601H5.8v.601H7zm.6-1.201h.6v-.6H7v1.199h.6v-.599zm-2.401.6H5.8v-.6h.6v-.6H5.2v.6h-.6v.6H4v.601h1.199v-.601z"/></svg>
                 </div>
@@ -14,7 +14,7 @@
                 <h3 class="font-semibold text-sm uppercase">Avegage Revenue</h3>
             </article>
 
-            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center">
+            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center transition duration-500 ease-in-out transform hover:-translate-y-2 hover:scale-105">
                 <div class="icon relative rounded-full w-24 h-24 mb-4 items-center align-middle bg-gray-200 overflow-hidden">
                     <svg class="absolute p-8 fill-current text-green-600" viewBox="0 0 20 20"><path d="M9 10h2v2h9s-.149-4.459-.2-5.854C19.75 4.82 19.275 4 17.8 4h-3.208l-1.197-2.256C13.064 1.121 12.951 1 12.216 1H7.783c-.735 0-.847.121-1.179.744-.165.311-.7 1.318-1.196 2.256H2.199c-1.476 0-1.945.82-2 2.146C.145 7.473 0 12 0 12h9v-2zM7.649 2.916c.23-.432.308-.516.817-.516h3.067c.509 0 .588.084.816.516L12.924 4h-5.85l.575-1.084zM11 15H9v-2H.5s.124 1.797.199 3.322C.73 16.955.917 18 2.499 18H17.5c1.582 0 1.765-1.047 1.8-1.678.087-1.568.2-3.322.2-3.322H11v2z"/></svg>
                 </div>
@@ -22,7 +22,7 @@
                 <h3 class="font-semibold text-sm uppercase">Business Meetings</h3>
             </article>
 
-            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center">
+            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center transition duration-500 ease-in-out transform hover:-translate-y-2 hover:scale-105">
                 <div class="icon relative rounded-full w-24 h-24 mb-4 items-center align-middle bg-gray-200 overflow-hidden">
                     <svg class="absolute p-8 fill-current text-blue-600" viewBox="0 0 20 20"><path d="M15 7h-3V1H8v6H5l5 5 5-5zm4.338 6.532c-.21-.224-1.611-1.723-2.011-2.114A1.503 1.503 0 0016.285 11h-1.757l3.064 2.994h-3.544a.274.274 0 00-.24.133L12.992 16H7.008l-.816-1.873a.276.276 0 00-.24-.133H2.408L5.471 11H3.715c-.397 0-.776.159-1.042.418-.4.392-1.801 1.891-2.011 2.114-.489.521-.758.936-.63 1.449l.561 3.074c.128.514.691.936 1.252.936h16.312c.561 0 1.124-.422 1.252-.936l.561-3.074c.126-.513-.142-.928-.632-1.449z"/></svg>
                 </div>
@@ -30,7 +30,7 @@
                 <h3 class="font-semibold text-sm uppercase">Downloads</h3>
             </article>
 
-            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center">
+            <article class="w-full py-12 rounded-lg bg-white shadow-lg flex flex-col items-center justify-center transition duration-500 ease-in-out transform hover:-translate-y-2 hover:scale-105">
                 <div class="icon relative rounded-full w-24 h-24 mb-4 items-center align-middle bg-gray-200 overflow-hidden">
                     <svg class="absolute p-8 fill-current text-orange-600" viewBox="0 0 20 20"><path d="M15.989 19.129c0-2.246-2.187-3.389-4.317-4.307-2.123-.914-2.801-1.684-2.801-3.334 0-.989.648-.667.932-2.481.12-.752.692-.012.802-1.729 0-.684-.313-.854-.313-.854s.159-1.013.221-1.793c.064-.817-.398-2.56-2.301-3.095-.332-.341-.557-.882.467-1.424-2.24-.104-2.761 1.068-3.954 1.93-1.015.756-1.289 1.953-1.24 2.59.065.78.223 1.793.223 1.793s-.314.17-.314.854c.11 1.718.684.977.803 1.729.284 1.814.933 1.492.933 2.481 0 1.65-.212 2.21-2.336 3.124C.663 15.53 0 17 .011 19.129.014 19.766 0 20 0 20h16s-.011-.234-.011-.871zm2.539-5.764c-1.135-.457-1.605-1.002-1.605-2.066 0-.641.418-.432.602-1.603.077-.484.447-.008.518-1.115 0-.441-.202-.551-.202-.551s.103-.656.143-1.159c.05-.627-.364-2.247-2.268-2.247-1.903 0-2.318 1.62-2.269 2.247.042.502.144 1.159.144 1.159s-.202.109-.202.551c.071 1.107.441.631.518 1.115.184 1.172.602.963.602 1.603 0 1.064-.438 1.562-1.809 2.152-.069.029-.12.068-.183.102 1.64.712 4.226 1.941 4.838 4.447H20v-2.318c0-1-.273-1.834-1.472-2.317z"/></svg>
                 </div>
