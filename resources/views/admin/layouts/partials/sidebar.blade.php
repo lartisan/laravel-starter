@@ -61,7 +61,7 @@
 
 			<li class="nav-tables my-1 hover:text-gray-600">
 				<a class="flex items-center px-6 py-4 hover:bg-gray-300 {{ Request::segment(2) === 'tables' ? 'bg-gray-400 text-gray-600' : '' }}" href="{{ url('admin/tables') }}">
-					<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M16 1H4a1 1 0 00-1 1v16a1 1 0 001 1h12a1 1 0 001-1V2a1 1 0 00-1-1zm-1 16H5V3h10v14zM13 5H7v2h6V5zm0 8H7v2h6v-2zm0-4H7v2h6V9z"/></svg>
+					<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16 1H4a1 1 0 00-1 1v16a1 1 0 001 1h12a1 1 0 001-1V2a1 1 0 00-1-1zm-1 7H9v9H8V8H5V7h3V3h1v4h6v1z" clip-rule="evenodd"/></svg>
 					{{ __('Tables') }}
 				</a>
 			</li>
@@ -93,29 +93,6 @@
 					</li>
 				</ul>
 			</li>
-
-			{{-- <li class="nav-pages my-1 hover:text-gray-600" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false">
-				<a @click.prevent="isCollapsed = !isCollapsed" class="px-6 py-4 hover:bg-gray-300 {{ in_array(Request::segment(2), ['login', 'register']) ? 'bg-gray-400 text-gray-600' : '' }} flex items-center justify-between" href="#">
-					<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M19.398 7.415l-7.444-1.996L10.651.558c-.109-.406-.545-.642-.973-.529L.602 2.461c-.428.114-.686.538-.577.944l3.23 12.051c.109.406.544.643.971.527l3.613-.967-.492 1.838c-.109.406.149.83.577.943l8.11 2.174c.428.115.862-.121.972-.529l2.97-11.084c.108-.406-.15-.83-.578-.943zM1.633 3.631l7.83-2.096 2.898 10.818-7.83 2.096L1.633 3.631zm14.045 14.832L8.864 16.6l.536-2.002 3.901-1.047c.428-.113.688-.537.578-.943l-1.508-5.627 5.947 1.631-2.64 9.851z"/></svg>
-					<span class="flex-auto">{{ __('Pages') }}</span>
-					<svg class="w-4 fill-current" viewBox="0 0 20 20">
-						<path x-show="isCollapsed" d="M17.418 6.109a.697.697 0 01.979 0 .68.68 0 010 .969l-7.908 7.83a.697.697 0 01-.979 0l-7.908-7.83a.68.68 0 010-.969.697.697 0 01.979 0L10 13.25l7.418-7.141z"/>
-						<path x-show="!isCollapsed" d="M13.25 10L6.109 2.58a.697.697 0 010-.979.68.68 0 01.969 0l7.83 7.908a.697.697 0 010 .979l-7.83 7.908a.68.68 0 01-.969 0 .697.697 0 010-.979L13.25 10z"/>
-					</svg>
-				</a>
-				<ul x-show="isCollapsed" class="dropdown-item mt-2 px-4">
-					<li class="nav-item px-2 py-2 my-1 hover:text-gray-600 hover:bg-gray-400">
-						<a class="block" href="{{ url('admin/login') }}">
-							{{ __('Login') }}
-						</a>
-					</li>
-					<li class="nav-item px-2 py-2 my-1 hover:text-gray-600 hover:bg-gray-400">
-						<a class="block" href="{{ url('admin/register') }}">
-							{{ __('Register') }}
-						</a>
-					</li>
-				</ul>
-			</li> --}}
-			</ul>
+		</ul>
 	</nav>
 </aside> <!-- ./ Sidebar -->

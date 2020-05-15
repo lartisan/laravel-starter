@@ -1,4 +1,4 @@
-/*! normalize.css v8.0.1 | MIT License | github.com/necolas/normalize.css */
+@import url(/../../node_modules/dropzone/dist/dropzone.css);/*! normalize.css v8.0.1 | MIT License | github.com/necolas/normalize.css */
 
 /* Document
    ========================================================================== */
@@ -622,16 +622,6 @@ video {
     max-width: 1280px;
   }
 }
-
-/* @media (min-width: 640px) {
-    table {
-        display: inline-table !important;
-    }
-
-    thead tr:not(:first-child) {
-        display: none !important;
-    }
-} */
 
 .space-y-0 > :not(template) ~ :not(template) {
   --space-y-reverse: 0;
@@ -15078,8 +15068,31 @@ video {
   background-image: linear-gradient(30deg, #718096, #4a5568);
 }
 
+/* TAILWIND SPINNER */
+
 .spinner {
   position: absolute;
+}
+
+/* DROPZONE */
+
+.img-dropzone {
+  border: 1px;
+  border-color: rgba(237, 242, 247, 1);
+  border-radius: 0.25rem;
+  background-color: rgba(237, 242, 247, 1);
+  min-height: 150px;
+}
+
+.dz-message {
+  text-align: center;
+}
+
+.dz-message .dz-button {
+  color: rgba(74, 85, 104, 1);
+  font-weight: inherit;
+  font-size: initial;
+  text-transform: uppercase;
 }
 
 @media (min-width: 640px) {

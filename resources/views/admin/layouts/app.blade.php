@@ -19,13 +19,11 @@
 	<!-- Template Main CSS File -->
 	<link href="{{ asset('css/main.css') }}" rel="stylesheet">
 	@stack('styles')
-
-	<!-- Alpine JS -->
-	<script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
 </head>
 
 <body class="bg-gray-100 text-gray-500 font-sans font-thin flex flex-col min-h-screen md:flex-row md:flex-row">
 	
+	@include('sweetalert::alert')
 	@auth @include('admin.layouts.partials.sidebar') @endauth
 
     <!-- Main Container -->
@@ -38,6 +36,7 @@
 		@auth @include('admin.layouts.partials.footer') @endauth
 
 	</main> <!-- ./ Main Container -->
+	
 	<script src="{{ asset('js/app.js') }}"></script>
 	@stack('scripts')
 </body>

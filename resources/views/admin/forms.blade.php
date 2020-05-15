@@ -53,9 +53,7 @@
                         @error('link') <p class="text-red-500 text-xs italic">{{ ucfirst($message) }}</p> @enderror
                     </div>
                     <div class="w-full md:w-1/2 px-3 mb-6 md:mb-0">
-                        <label class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" for="launched_at">{{ __('Launched At') }}</label>
-                        <input class="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-4 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" name="launched_at" type="text" placeholder="{{ __('Launched At') }}" value="{{ $portfolio->launched_at ?? old('launched_at') }}">
-                        @error('launched_at') <p class="text-red-500 text-xs italic">{{ ucfirst($message) }}</p> @enderror
+                        @include('admin.partials._datepicker')
                     </div>
                 </div>
 
@@ -102,37 +100,12 @@
 
 @endsection
 
-@push('styles')
-	<link rel="stylesheet" href="https://rawgit.com/enyo/dropzone/master/dist/dropzone.css">
-    <style>
-        .img-dropzone {
-			border: 1px;
-			border-color: rgba(237, 242, 247, 1);
-            border-radius: 0.25rem;
-            background-color: rgba(237, 242, 247, 1);
-            min-height: 150px;
-		}
-
-		/* .img-dropzone i {
-            font-size: 5rem;
-		} */
-
-		.img-dropzone .dz-message {
-            color: rgba(74, 85, 104, 1);
-            font-weight: inherit;
-            font-size: initial;
-            text-transform: uppercase;
-		}
-    </style>
-@endpush
-
 @push('scripts')
 	{{-- Dropzone --}}
-	<script src="https://rawgit.com/enyo/dropzone/master/dist/dropzone.js"></script>
     <script type="text/javascript">
         var uploadedImagesMap = {}
 
-        Dropzone.options.images = {
+        var myDropzone = new Dropzone('#images', {
             url: "http://www.example.com/", // TOUR_URL_HERE
             maxFilesize: 5, // MB
             addRemoveLinks: true,
@@ -145,8 +118,6 @@
             success: function(file, response)
             {
                 console.log(response);
-                $('form').append('<input type="hidden" name="images[]" value="' + response.name + '">')
-                uploadedImagesMap[file.name] = response.name
             },
             
             error: function(file, response)
@@ -154,7 +125,7 @@
 				console.log(response);
 				return false;
             }
-        }
+        });
 
     </script>
 @endpush

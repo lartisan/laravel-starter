@@ -39,6 +39,45 @@
             </article>
         </section> <!-- ./ Cards -->
 
+        <!-- Charts -->
+        <section class="charts p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-10">
+            <article class="panel-gray w-full rounded-lg overflow-hidden bg-white shadow-lg flex flex-col items-center justify-center">
+                <div class="panel-header relative w-full top-0 bg-gray-200 px-4 py-6 flex justify-between items-center" x-data="{ isOpen: false }" @click.away="isOpen = false">
+                    <span class="text-xl text-gray-500 font-light">Latest Users - This Week vs Last Week</span>
+                    <button @click="isOpen = !isOpen" class="focus:outline-none">
+                        <svg class="w-6 fill-current text-gray-500" viewBox="0 0 20 20"><path d="M16.783 10c0-1.049.646-1.875 1.617-2.443a8.932 8.932 0 00-.692-1.672c-1.089.285-1.97-.141-2.711-.883-.741-.74-.968-1.621-.683-2.711a8.732 8.732 0 00-1.672-.691c-.568.97-1.595 1.615-2.642 1.615-1.048 0-2.074-.645-2.643-1.615a8.697 8.697 0 00-1.671.691c.285 1.09.059 1.971-.684 2.711-.74.742-1.621 1.168-2.711.883A8.797 8.797 0 001.6 7.557c.97.568 1.615 1.394 1.615 2.443 0 1.047-.645 2.074-1.615 2.643a8.89 8.89 0 00.691 1.672c1.09-.285 1.971-.059 2.711.682.741.742.969 1.623.684 2.711a8.841 8.841 0 001.672.693c.568-.973 1.595-1.617 2.643-1.617 1.047 0 2.074.645 2.643 1.617a8.963 8.963 0 001.672-.693c-.285-1.088-.059-1.969.683-2.711.741-.74 1.622-1.166 2.711-.883a8.811 8.811 0 00.692-1.672c-.973-.569-1.619-1.395-1.619-2.442zM10 13.652a3.652 3.652 0 110-7.306 3.653 3.653 0 010 7.306z"/></svg>
+                    </button>
+                    <ul x-show="isOpen" class="actions absolute right-0 mt-20 mr-10 rounded overflow-hidden bg-white shadow-md">
+                        <li class="px-4 py-2 border-b border-gray-200 hover:bg-gray-200 hover:text-gray-600">Action</li>
+                        <li class="px-4 py-2 border-b border-gray-200 hover:bg-gray-200 hover:text-gray-600">Another action</li>
+                        <li class="px-4 py-2 hover:bg-gray-200 hover:text-gray-600">Some other action</li>
+                    </ul>
+                </div>
+                <div class="panel-body w-full px-4 py-6">
+                    {!! $latestUsersChart->container() !!}
+                </div>
+                <div class="panel-footer w-full p-6 border-t border-gray-200 text-right">ChartJS</div>
+            </article>
+
+            <article class="panel-gray w-full rounded-lg overflow-hidden bg-white shadow-lg flex flex-col items-center justify-center">
+                <div class="panel-header relative w-full top-0 bg-gray-200 px-4 py-6 flex justify-between items-center" x-data="{ isOpen: false }" @click.away="isOpen = false">
+                    <span class="text-xl text-gray-500 font-light">Monthly Views - 2020 vs 2019</span>
+                    <button @click="isOpen = !isOpen" class="focus:outline-none">
+                        <svg class="w-6 fill-current text-gray-500" viewBox="0 0 20 20"><path d="M16.783 10c0-1.049.646-1.875 1.617-2.443a8.932 8.932 0 00-.692-1.672c-1.089.285-1.97-.141-2.711-.883-.741-.74-.968-1.621-.683-2.711a8.732 8.732 0 00-1.672-.691c-.568.97-1.595 1.615-2.642 1.615-1.048 0-2.074-.645-2.643-1.615a8.697 8.697 0 00-1.671.691c.285 1.09.059 1.971-.684 2.711-.74.742-1.621 1.168-2.711.883A8.797 8.797 0 001.6 7.557c.97.568 1.615 1.394 1.615 2.443 0 1.047-.645 2.074-1.615 2.643a8.89 8.89 0 00.691 1.672c1.09-.285 1.971-.059 2.711.682.741.742.969 1.623.684 2.711a8.841 8.841 0 001.672.693c.568-.973 1.595-1.617 2.643-1.617 1.047 0 2.074.645 2.643 1.617a8.963 8.963 0 001.672-.693c-.285-1.088-.059-1.969.683-2.711.741-.74 1.622-1.166 2.711-.883a8.811 8.811 0 00.692-1.672c-.973-.569-1.619-1.395-1.619-2.442zM10 13.652a3.652 3.652 0 110-7.306 3.653 3.653 0 010 7.306z"/></svg>
+                    </button>
+                    <ul x-show="isOpen" class="actions absolute right-0 mt-20 mr-10 rounded overflow-hidden bg-white shadow-md">
+                        <li class="px-4 py-2 border-b border-gray-200 hover:bg-gray-200 hover:text-gray-600">Action</li>
+                        <li class="px-4 py-2 border-b border-gray-200 hover:bg-gray-200 hover:text-gray-600">Another action</li>
+                        <li class="px-4 py-2 hover:bg-gray-200 hover:text-gray-600">Some other action</li>
+                    </ul>
+                </div>
+                <div class="panel-body w-full px-4 py-6">
+                    {!! $monthlyViewsChart->container() !!}
+                </div>
+                <div class="panel-footer w-full p-6 border-t border-gray-200 text-right">ChartJS</div>
+            </article>
+        </section>
+
         <!-- Panels -->
         <section class="panels p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-10">
             <article class="panel-gray w-full rounded-lg overflow-hidden bg-white shadow-lg flex flex-col items-center justify-center">
@@ -119,3 +158,8 @@
         </section> <!-- ./ Panels -->
 
 @endsection
+
+@push('scripts')
+    {!! $latestUsersChart->script() !!}
+    {!! $monthlyViewsChart->script() !!}
+@endpush
