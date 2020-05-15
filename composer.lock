@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0c00398580e7a17eb6c24fce49077d21",
+    "content-hash": "1e83e1b79ac8cb041844b197487ffcd9",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -1048,6 +1048,58 @@
                 "ui"
             ],
             "time": "2020-04-29T15:06:45+00:00"
+        },
+        {
+            "name": "lartisan/laravel-preset",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/lartisan/laravel-preset.git",
+                "reference": "9aea84de93605240d021e0c472a021e4448cc121"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/lartisan/laravel-preset/zipball/9aea84de93605240d021e0c472a021e4448cc121",
+                "reference": "9aea84de93605240d021e0c472a021e4448cc121",
+                "shasum": ""
+            },
+            "require": {
+                "consoletvs/charts": "^6.5",
+                "laravel/ui": "^2.0",
+                "realrashid/sweet-alert": "^3.1"
+            },
+            "type": "preset",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Lartisan\\Providers\\LartisanServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Lartisan\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Cristian Iosif",
+                    "email": "cristianiosif@me.com"
+                }
+            ],
+            "description": "An elegant Admin Panel for Laravel.",
+            "keywords": [
+                "laravel",
+                "laravel admin panel",
+                "laravel preset",
+                "lartisan",
+                "tailwind css"
+            ],
+            "time": "2020-05-15T20:52:46+00:00"
         },
         {
             "name": "league/commonmark",
@@ -5621,7 +5673,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {
+        "lartisan/laravel-preset": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

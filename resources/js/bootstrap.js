@@ -1,8 +1,8 @@
 try {
-    window.Chart = require("chart.js");
-    window.Dropzone = require("dropzone");
+  window.Chart = require("chart.js");
+  window.Dropzone = require("dropzone");
 } catch (e) {
-    console.log(e);
+  console.log(e);
 }
 
 Dropzone.autoDiscover = false;

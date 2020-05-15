@@ -9,7 +9,7 @@ use Illuminate\Foundation\Auth\AuthenticatesUsers;
 
 class LoginController extends Controller
 {
-    /*
+	/*
     |--------------------------------------------------------------------------
     | Login Controller
     |--------------------------------------------------------------------------
@@ -20,57 +20,57 @@ class LoginController extends Controller
     |
     */
 
-    use AuthenticatesUsers;
+	use AuthenticatesUsers;
 
-    /**
-     * Where to redirect users after login.
-     *
-     * @var string
-     */
-    protected $redirectTo = RouteServiceProvider::HOME;
+	/**
+	 * Where to redirect users after login.
+	 *
+	 * @var string
+	 */
+	protected $redirectTo = RouteServiceProvider::HOME;
 
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
-    public function __construct()
-    {
-        $this->middleware('guest')->except('logout');
-    }
+	/**
+	 * Create a new controller instance.
+	 *
+	 * @return void
+	 */
+	public function __construct()
+	{
+		$this->middleware('guest')->except('logout');
+	}
 
-    /**
-     * Show the application's login form.
-     *
-     * @return \Illuminate\View\View
-     */
-    public function showLoginForm()
-    {
-        return view('admin.login');
-    }
+	/**
+	 * Show the application's login form.
+	 *
+	 * @return \Illuminate\View\View
+	 */
+	public function showLoginForm()
+	{
+		return view('admin.login');
+	}
 
-    /**
-     * The user has been authenticated.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  mixed  $user
-     * @return mixed
-     */
-    protected function redirectTo()
-    {
-        toast(__('Welcome back, :name', ['name' => auth()->user()->name]), 'success');
+	/**
+	 * The user has been authenticated.
+	 *
+	 * @param  \Illuminate\Http\Request  $request
+	 * @param  mixed  $user
+	 * @return mixed
+	 */
+	protected function redirectTo()
+	{
+		toast(__('Welcome back, :name', ['name' => auth()->user()->name]), 'success');
 
-        return $this->redirectTo;
-    }
+		return $this->redirectTo;
+	}
 
-    /**
-     * The user has logged out of the application.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return mixed
-     */
-    protected function loggedOut(Request $request)
-    {
-        toast(__('You have successfully logged out!'), 'success');
-    }
+	/**
+	 * The user has logged out of the application.
+	 *
+	 * @param  \Illuminate\Http\Request  $request
+	 * @return mixed
+	 */
+	protected function loggedOut(Request $request)
+	{
+		toast(__('You have successfully logged out!'), 'success');
+	}
 }

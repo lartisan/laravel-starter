@@ -36,7 +36,6 @@
 		@auth @include('admin.layouts.partials.footer') @endauth
 
 	</main> <!-- ./ Main Container -->
-	
 	<script src="{{ asset('js/app.js') }}"></script>
 	@stack('scripts')
 </body>
