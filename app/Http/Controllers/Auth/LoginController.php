@@ -61,7 +61,7 @@ class LoginController extends Controller
 	 */
 	protected function redirectTo()
 	{
-		toast(__('Welcome back, :name', ['name' => auth()->user()->name]), 'success');
+		toast(__('Welcome, :name', ['name' => auth()->user()->name]), 'success');
 
 		return $this->redirectTo;
 	}
@@ -82,9 +82,9 @@ class LoginController extends Controller
 	 *
 	 * @return \Illuminate\Http\Response
 	 */
-	public function redirectToProvider()
+	public function redirectToProvider($provider)
 	{
-		return Socialite::driver('github')->redirect();
+		return Socialite::driver($provider)->redirect();
 	}
 
 	/**
@@ -94,18 +94,21 @@ class LoginController extends Controller
 	 */
 	public function handleProviderCallback($provider)
 	{
-		$githubUser = Socialite::driver($provider)->user();
+		$socialiteUser = Socialite::driver($provider)->user();
 
-		$user = User::updateOrCreate([
-			'name' => $githubUser->getName(),
-			'email' => $githubUser->getEmail(),
-			'provider_id' => $githubUser->getId(),
-			'provider' => $provider
-		]);
+		$user = User::whereEmail($socialiteUser->getEmail())->first();
+
+		if (!$user)
+			$user = User::updateOrCreate([
+				'name' => $socialiteUser->getName(),
+				'email' => $socialiteUser->getEmail(),
+				'provider_id' => $socialiteUser->getId(),
+				'provider' => $provider
+			]);
 
 		Auth::login($user, true);
 
-		toast(__('Welcome back, :name', ['name' => $user->name]), 'success');
+		toast(__('Welcome, :name', ['name' => $user->name]), 'success');
 		return redirect($this->redirectTo);
 	}
 }

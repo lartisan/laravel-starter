@@ -19,5 +19,7 @@ Route::get('/', function () {
 
 Auth::routes();
 
-Route::get('login/{provider}', 'Auth\LoginController@redirectToProvider')->name('socialite');
+Route::get('login/{provider}', 'Auth\LoginController@redirectToProvider')
+    ->where(['provider' => 'facebook|twitter|github'])
+    ->name('socialite');
 Route::get('login/{provider}/callback', 'Auth\LoginController@handleProviderCallback');

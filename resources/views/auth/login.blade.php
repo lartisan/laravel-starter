@@ -15,10 +15,10 @@
 				<p class="font-light">{{ __('Login with') }}</p>
 
 				<div class="flex flex-col md:flex-row items-center justify-center pt-6">
-					{{-- <a href="{{ route('socialite', 'facebook') }}" class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center justify-center">
+					<a href="{{ route('socialite', 'facebook') }}" class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center justify-center">
 						<svg class="w-4 fill-current text-blue-600" viewBox="0 0 20 20"><path d="M17 1H3c-1.1 0-2 .9-2 2v14c0 1.101.9 2 2 2h7v-7H8V9.525h2v-2.05c0-2.164 1.212-3.684 3.766-3.684l1.803.002v2.605h-1.197c-.994 0-1.372.746-1.372 1.438v1.69h2.568L15 12h-2v7h4c1.1 0 2-.899 2-2V3c0-1.1-.9-2-2-2z"/></svg>
 						<span class="ml-2">Facebook</span>
-					</a> --}}
+					</a>
 					{{-- <a href="{{ route('socialite', 'twitter') }}" class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center justify-center">
 						<svg class="w-4 fill-current text-blue-400" viewBox="0 0 20 20"><path d="M17.316 6.246c.008.162.011.326.011.488 0 4.99-3.797 10.742-10.74 10.742-2.133 0-4.116-.625-5.787-1.697a7.577 7.577 0 005.588-1.562 3.779 3.779 0 01-3.526-2.621 3.858 3.858 0 001.705-.065 3.779 3.779 0 01-3.028-3.703v-.047a3.766 3.766 0 001.71.473 3.775 3.775 0 01-1.168-5.041 10.716 10.716 0 007.781 3.945 3.813 3.813 0 01-.097-.861 3.773 3.773 0 013.774-3.773 3.77 3.77 0 012.756 1.191 7.602 7.602 0 002.397-.916 3.789 3.789 0 01-1.66 2.088 7.55 7.55 0 002.168-.594 7.623 7.623 0 01-1.884 1.953z"/></svg>
 						<span class="ml-2">Twitter</span>
