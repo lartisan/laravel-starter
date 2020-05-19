@@ -2,5 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/home', 'DashboardController');
+Route::redirect('/', 'admin/home');
+Route::get('/home', 'DashboardController')->name('home');
 Route::get('/{page}', 'PageController');

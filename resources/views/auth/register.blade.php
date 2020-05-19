@@ -15,18 +15,18 @@
 				<p class="font-light">{{ __('Register with') }}</p>
 
 				<div class="flex flex-col md:flex-row items-center justify-center pt-6">
-					<button class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center">
+					{{-- <button class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center">
 						<svg class="w-4 fill-current text-blue-600" viewBox="0 0 20 20"><path d="M17 1H3c-1.1 0-2 .9-2 2v14c0 1.101.9 2 2 2h7v-7H8V9.525h2v-2.05c0-2.164 1.212-3.684 3.766-3.684l1.803.002v2.605h-1.197c-.994 0-1.372.746-1.372 1.438v1.69h2.568L15 12h-2v7h4c1.1 0 2-.899 2-2V3c0-1.1-.9-2-2-2z"/></svg>
 						<span class="ml-2">Facebook</span>
-					</button>
-					<button class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center">
+					</button> --}}
+					{{-- <button class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center">
 						<svg class="w-4 fill-current text-blue-400" viewBox="0 0 20 20"><path d="M17.316 6.246c.008.162.011.326.011.488 0 4.99-3.797 10.742-10.74 10.742-2.133 0-4.116-.625-5.787-1.697a7.577 7.577 0 005.588-1.562 3.779 3.779 0 01-3.526-2.621 3.858 3.858 0 001.705-.065 3.779 3.779 0 01-3.028-3.703v-.047a3.766 3.766 0 001.71.473 3.775 3.775 0 01-1.168-5.041 10.716 10.716 0 007.781 3.945 3.813 3.813 0 01-.097-.861 3.773 3.773 0 013.774-3.773 3.77 3.77 0 012.756 1.191 7.602 7.602 0 002.397-.916 3.789 3.789 0 01-1.66 2.088 7.55 7.55 0 002.168-.594 7.623 7.623 0 01-1.884 1.953z"/></svg>
 						<span class="ml-2">Twitter</span>
-					</button>
-					<button class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center">
+					</button> --}}
+					<a href="{{ url('login/github') }}" class="bg-white w-full px-4 py-2 shadow-md mx-2 my-2 flex items-center justify-center">
 						<svg class="w-4 fill-current text-black" viewBox="0 0 20 20"><path d="M13.18 11.309c-.718 0-1.3.807-1.3 1.799 0 .994.582 1.801 1.3 1.801s1.3-.807 1.3-1.801c-.001-.992-.582-1.799-1.3-1.799zm4.526-4.683c.149-.365.155-2.439-.635-4.426 0 0-1.811.199-4.551 2.08-.575-.16-1.548-.238-2.519-.238-.973 0-1.945.078-2.52.238C4.74 2.399 2.929 2.2 2.929 2.2c-.789 1.987-.781 4.061-.634 4.426C1.367 7.634.8 8.845.8 10.497c0 7.186 5.963 7.301 7.467 7.301l1.734.002 1.732-.002c1.506 0 7.467-.115 7.467-7.301 0-1.652-.566-2.863-1.494-3.871zm-7.678 10.289h-.056c-3.771 0-6.709-.449-6.709-4.115 0-.879.31-1.693 1.047-2.369C5.537 9.304 7.615 9.9 9.972 9.9h.056c2.357 0 4.436-.596 5.664.531.735.676 1.045 1.49 1.045 2.369 0 3.666-2.937 4.115-6.709 4.115zm-3.207-5.606c-.718 0-1.3.807-1.3 1.799 0 .994.582 1.801 1.3 1.801.719 0 1.301-.807 1.301-1.801 0-.992-.582-1.799-1.301-1.799z"/></svg>
 						<span class="ml-2">Github</span>
-					</button>
+					</a>
 				</div>
 
 				<hr class="border-b border-gray-300 my-8">

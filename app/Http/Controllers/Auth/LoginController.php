@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Auth;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
+use App\User;
+use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
@@ -72,5 +75,37 @@ class LoginController extends Controller
 	protected function loggedOut(Request $request)
 	{
 		toast(__('You have successfully logged out!'), 'success');
+	}
+
+	/**
+	 * Redirect the user to the GitHub authentication page.
+	 *
+	 * @return \Illuminate\Http\Response
+	 */
+	public function redirectToProvider()
+	{
+		return Socialite::driver('github')->redirect();
+	}
+
+	/**
+	 * Obtain the user information from GitHub.
+	 *
+	 * @return \Illuminate\Http\Response
+	 */
+	public function handleProviderCallback($provider)
+	{
+		$githubUser = Socialite::driver($provider)->user();
+
+		$user = User::updateOrCreate([
+			'name' => $githubUser->getName(),
+			'email' => $githubUser->getEmail(),
+			'provider_id' => $githubUser->getId(),
+			'provider' => $provider
+		]);
+
+		Auth::login($user, true);
+
+		toast(__('Welcome back, :name', ['name' => $user->name]), 'success');
+		return redirect($this->redirectTo);
 	}
 }
