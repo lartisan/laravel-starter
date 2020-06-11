@@ -1,5 +1,5 @@
 <!-- Sidebar -->
-<aside class="sidebar max-h-full bg-gray-200 shadow-lg">
+<aside class="sidebar md:w-64 max-h-screen bg-gray-200 shadow-lg flex flex-col justify-between">
 	<nav class="sidebar-nav" x-data="{ isOpen: false }" @click.away="isOpen = false">
 		<div class="nav-brand p-6 my-1 flex items-center justify-between">
 			<a href="{{ url('admin/home') }}" class="">
@@ -16,9 +16,11 @@
 		<ul 
 			:class="{ 'hidden': !isOpen }" 
 			class="md:block nav-items mt-4">
-			<li class="nav-user my-1 hover:text-gray-600" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false">
+			{{-- <li class="nav-user my-1 hover:text-gray-600" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false">
 				<a @click.prevent="isCollapsed = !isCollapsed" class="px-6 py-4 hover:bg-gray-300 {{ Request::segment(2) === 'profile' ? 'bg-gray-400 text-gray-600' : '' }} flex items-center justify-between" href="#">
-					<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M7.725 2.146c-1.016.756-1.289 1.953-1.239 2.59.064.779.222 1.793.222 1.793s-.313.17-.313.854c.109 1.717.683.976.801 1.729.284 1.814.933 1.491.933 2.481 0 1.649-.68 2.42-2.803 3.334C3.196 15.845 1 17 1 19v1h18v-1c0-2-2.197-3.155-4.328-4.072-2.123-.914-2.801-1.684-2.801-3.334 0-.99.647-.667.932-2.481.119-.753.692-.012.803-1.729 0-.684-.314-.854-.314-.854s.158-1.014.221-1.793c.065-.817-.398-2.561-2.3-3.096-.333-.34-.558-.881.466-1.424-2.24-.105-2.761 1.067-3.954 1.929z"/></svg>
+					<div class="w-4 h-4 md:w-5 md:h-5 rounded-full overflow-hidden mr-2">
+						<img src="{{ auth()->user()->avatarUrl(20) }}" alt="Profile" class="w-full h-full">
+					</div>
 					<span class="flex-auto">{{ auth()->check() ? auth()->user()->name : __('Administrator') }}</span>
 					<svg class="w-4 fill-current" viewBox="0 0 20 20">
 						<path x-show="isCollapsed" d="M17.418 6.109a.697.697 0 01.979 0 .68.68 0 010 .969l-7.908 7.83a.697.697 0 01-.979 0l-7.908-7.83a.68.68 0 010-.969.697.697 0 01.979 0L10 13.25l7.418-7.141z"/>
@@ -43,7 +45,7 @@
 						</form>
 					</li>
 				</ul>
-			</li>
+			</li> --}}
 
 			<li class="nav-dashboard my-1 hover:text-gray-600">
 				<a class="flex items-center px-6 py-4 hover:bg-gray-300 {{ Request::segment(2) === 'home' ? 'bg-gray-400 text-gray-600' : '' }}" href="{{ url('admin/home') }}">
