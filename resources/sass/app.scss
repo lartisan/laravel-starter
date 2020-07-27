@@ -1,1 +1,15 @@
-//
+@import "tailwindcss/base";
+
+@import "tailwindcss/components";
+
+@import "tailwindcss/utilities";
+
+/* THEMES */
+@import "themes/variables";
+
+/* TAILWIND SPINNER */
+@import "spinner";
+
+/* DROPZONE */
+@import "~dropzone/dist/dropzone.css";
+@import "dropzone-styles";

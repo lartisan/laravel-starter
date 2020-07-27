@@ -164,8 +164,18 @@
   function isTesting() {
     return navigator.userAgent.includes("Node.js") || navigator.userAgent.includes("jsdom");
   }
+  function warnIfMalformedTemplate(el, directive) {
+    if (el.tagName.toLowerCase() !== 'template') {
+      console.warn(`Alpine: [${directive}] directive should only be added to <template> tags. See https://github.com/alpinejs/alpine#${directive}`);
+    } else if (el.content.childElementCount !== 1) {
+      console.warn(`Alpine: <template> tag with [${directive}] encountered with multiple element roots. Make sure <template> only has a single child node.`);
+    }
+  }
   function kebabCase(subject) {
     return subject.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/[_\s]/, '-').toLowerCase();
+  }
+  function camelCase(subject) {
+    return subject.toLowerCase().replace(/[^a-zA-Z0-9]+(.)/g, (match, char) => char.toUpperCase());
   }
   function walk(el, callback) {
     if (callback(el) === false) return;
@@ -192,11 +202,19 @@
     };
   }
   function saferEval(expression, dataContext, additionalHelperVariables = {}) {
-    return new Function(['$data', ...Object.keys(additionalHelperVariables)], `var result; with($data) { result = ${expression} }; return result`)(dataContext, ...Object.values(additionalHelperVariables));
+    if (typeof expression === 'function') {
+      return expression.call(dataContext);
+    }
+
+    return new Function(['$data', ...Object.keys(additionalHelperVariables)], `var __alpine_result; with($data) { __alpine_result = ${expression} }; return __alpine_result`)(dataContext, ...Object.values(additionalHelperVariables));
   }
   function saferEvalNoReturn(expression, dataContext, additionalHelperVariables = {}) {
-    // For the cases when users pass only a function reference to the caller: `x-on:click="foo"`
+    if (typeof expression === 'function') {
+      return expression.call(dataContext, additionalHelperVariables['$event']);
+    } // For the cases when users pass only a function reference to the caller: `x-on:click="foo"`
     // Where "foo" is a function. Also, we'll pass the function the event instance when we call it.
+
+
     if (Object.keys(dataContext).includes(expression)) {
       let methodReference = new Function(['dataContext', ...Object.keys(additionalHelperVariables)], `with(dataContext) { return ${expression} }`)(dataContext, ...Object.values(additionalHelperVariables));
 
@@ -207,29 +225,54 @@
 
     return new Function(['dataContext', ...Object.keys(additionalHelperVariables)], `with(dataContext) { ${expression} }`)(dataContext, ...Object.values(additionalHelperVariables));
   }
-  const xAttrRE = /^x-(on|bind|data|text|html|model|if|for|show|cloak|transition|ref)\b/;
+  const xAttrRE = /^x-(on|bind|data|text|html|model|if|for|show|cloak|transition|ref|spread)\b/;
   function isXAttr(attr) {
     const name = replaceAtAndColonWithStandardSyntax(attr.name);
     return xAttrRE.test(name);
   }
-  function getXAttrs(el, type) {
-    return Array.from(el.attributes).filter(isXAttr).map(attr => {
-      const name = replaceAtAndColonWithStandardSyntax(attr.name);
-      const typeMatch = name.match(xAttrRE);
-      const valueMatch = name.match(/:([a-zA-Z\-:]+)/);
-      const modifiers = name.match(/\.[^.\]]+(?=[^\]]*$)/g) || [];
-      return {
-        type: typeMatch ? typeMatch[1] : null,
-        value: valueMatch ? valueMatch[1] : null,
-        modifiers: modifiers.map(i => i.replace('.', '')),
-        expression: attr.value
-      };
-    }).filter(i => {
-      // If no type is passed in for filtering, bypass filter
-      if (!type) return true;
-      return i.type === type;
+  function getXAttrs(el, component, type) {
+    let directives = Array.from(el.attributes).filter(isXAttr).map(parseHtmlAttribute); // Get an object of directives from x-spread.
+
+    let spreadDirective = directives.filter(directive => directive.type === 'spread')[0];
+
+    if (spreadDirective) {
+      let spreadObject = saferEval(spreadDirective.expression, component.$data); // Add x-spread directives to the pile of existing directives.
+
+      directives = directives.concat(Object.entries(spreadObject).map(([name, value]) => parseHtmlAttribute({
+        name,
+        value
+      })));
+    }
+
+    if (type) return directives.filter(i => i.type === type);
+    return sortDirectives(directives);
+  }
+
+  function sortDirectives(directives) {
+    let directiveOrder = ['bind', 'model', 'show', 'catch-all'];
+    return directives.sort((a, b) => {
+      let typeA = directiveOrder.indexOf(a.type) === -1 ? 'catch-all' : a.type;
+      let typeB = directiveOrder.indexOf(b.type) === -1 ? 'catch-all' : b.type;
+      return directiveOrder.indexOf(typeA) - directiveOrder.indexOf(typeB);
     });
   }
+
+  function parseHtmlAttribute({
+    name,
+    value
+  }) {
+    const normalizedName = replaceAtAndColonWithStandardSyntax(name);
+    const typeMatch = normalizedName.match(xAttrRE);
+    const valueMatch = normalizedName.match(/:([a-zA-Z\-:]+)/);
+    const modifiers = normalizedName.match(/\.[^.\]]+(?=[^\]]*$)/g) || [];
+    return {
+      type: typeMatch ? typeMatch[1] : null,
+      value: valueMatch ? valueMatch[1] : null,
+      modifiers: modifiers.map(i => i.replace('.', '')),
+      expression: value
+    };
+  }
+
   function isBooleanAttr(attrName) {
     // As per HTML spec table https://html.spec.whatwg.org/multipage/indices.html#attributes-3:boolean-attribute
     // Array roughly ordered by estimated usage
@@ -245,11 +288,23 @@
 
     return name;
   }
-  function transitionIn(el, show, forceSkip = false) {
+  function convertClassStringToArray(classList, filterFn = Boolean) {
+    return classList.split(' ').filter(filterFn);
+  }
+  const TRANSITION_TYPE_IN = 'in';
+  const TRANSITION_TYPE_OUT = 'out';
+  function transitionIn(el, show, component, forceSkip = false) {
     // We don't want to transition on the initial page load.
     if (forceSkip) return show();
-    const attrs = getXAttrs(el, 'transition');
-    const showAttr = getXAttrs(el, 'show')[0]; // If this is triggered by a x-show.transition.
+
+    if (el.__x_transition && el.__x_transition.type === TRANSITION_TYPE_IN) {
+      // there is already a similar transition going on, this was probably triggered by
+      // a change in a different property, let's just leave the previous one doing its job
+      return;
+    }
+
+    const attrs = getXAttrs(el, component, 'transition');
+    const showAttr = getXAttrs(el, component, 'show')[0]; // If this is triggered by a x-show.transition.
 
     if (showAttr && showAttr.modifiers.includes('transition')) {
       let modifiers = showAttr.modifiers; // If x-show.transition.out, we'll skip the "in" transition.
@@ -259,17 +314,25 @@
 
       modifiers = settingBothSidesOfTransition ? modifiers.filter((i, index) => index < modifiers.indexOf('out')) : modifiers;
       transitionHelperIn(el, modifiers, show); // Otherwise, we can assume x-transition:enter.
-    } else if (attrs.length > 0) {
-      transitionClassesIn(el, attrs, show);
+    } else if (attrs.some(attr => ['enter', 'enter-start', 'enter-end'].includes(attr.value))) {
+      transitionClassesIn(el, component, attrs, show);
     } else {
       // If neither, just show that damn thing.
       show();
     }
   }
-  function transitionOut(el, hide, forceSkip = false) {
+  function transitionOut(el, hide, component, forceSkip = false) {
+    // We don't want to transition on the initial page load.
     if (forceSkip) return hide();
-    const attrs = getXAttrs(el, 'transition');
-    const showAttr = getXAttrs(el, 'show')[0];
+
+    if (el.__x_transition && el.__x_transition.type === TRANSITION_TYPE_OUT) {
+      // there is already a similar transition going on, this was probably triggered by
+      // a change in a different property, let's just leave the previous one doing its job
+      return;
+    }
+
+    const attrs = getXAttrs(el, component, 'transition');
+    const showAttr = getXAttrs(el, component, 'show')[0];
 
     if (showAttr && showAttr.modifiers.includes('transition')) {
       let modifiers = showAttr.modifiers;
@@ -277,8 +340,8 @@
       const settingBothSidesOfTransition = modifiers.includes('in') && modifiers.includes('out');
       modifiers = settingBothSidesOfTransition ? modifiers.filter((i, index) => index > modifiers.indexOf('out')) : modifiers;
       transitionHelperOut(el, modifiers, settingBothSidesOfTransition, hide);
-    } else if (attrs.length > 0) {
-      transitionClassesOut(el, attrs, hide);
+    } else if (attrs.some(attr => ['leave', 'leave-start', 'leave-end'].includes(attr.value))) {
+      transitionClassesOut(el, component, attrs, hide);
     } else {
       hide();
     }
@@ -297,7 +360,7 @@
         scale: 100
       }
     };
-    transitionHelper(el, modifiers, showCallback, () => {}, styleValues);
+    transitionHelper(el, modifiers, showCallback, () => {}, styleValues, TRANSITION_TYPE_IN);
   }
   function transitionHelperOut(el, modifiers, settingBothSidesOfTransition, hideCallback) {
     // Make the "out" transition .5x slower than the "in". (Visually better)
@@ -316,7 +379,7 @@
         scale: modifierValue(modifiers, 'scale', 95)
       }
     };
-    transitionHelper(el, modifiers, () => {}, hideCallback, styleValues);
+    transitionHelper(el, modifiers, () => {}, hideCallback, styleValues, TRANSITION_TYPE_OUT);
   }
 
   function modifierValue(modifiers, key, fallback) {
@@ -349,8 +412,14 @@
     return rawValue;
   }
 
-  function transitionHelper(el, modifiers, hook1, hook2, styleValues) {
-    // If the user set these style values, we'll put them back when we're done with them.
+  function transitionHelper(el, modifiers, hook1, hook2, styleValues, type) {
+    // clear the previous transition if exists to avoid caching the wrong styles
+    if (el.__x_transition) {
+      cancelAnimationFrame(el.__x_transition.nextFrame);
+      el.__x_transition.callback && el.__x_transition.callback();
+    } // If the user set these style values, we'll put them back when we're done with them.
+
+
     const opacityCache = el.style.opacity;
     const transformCache = el.style.transform;
     const transformOriginCache = el.style.transformOrigin; // If no modifiers are present: x-show.transition, we'll default to both opacity and scale.
@@ -397,33 +466,43 @@
       }
 
     };
-    transition(el, stages);
+    transition(el, stages, type);
   }
-  function transitionClassesIn(el, directives, showCallback) {
-    const enter = (directives.find(i => i.value === 'enter') || {
+  function transitionClassesIn(el, component, directives, showCallback) {
+    let ensureStringExpression = expression => {
+      return typeof expression === 'function' ? component.evaluateReturnExpression(el, expression) : expression;
+    };
+
+    const enter = convertClassStringToArray(ensureStringExpression((directives.find(i => i.value === 'enter') || {
       expression: ''
-    }).expression.split(' ').filter(i => i !== '');
-    const enterStart = (directives.find(i => i.value === 'enter-start') || {
+    }).expression));
+    const enterStart = convertClassStringToArray(ensureStringExpression((directives.find(i => i.value === 'enter-start') || {
       expression: ''
-    }).expression.split(' ').filter(i => i !== '');
-    const enterEnd = (directives.find(i => i.value === 'enter-end') || {
+    }).expression));
+    const enterEnd = convertClassStringToArray(ensureStringExpression((directives.find(i => i.value === 'enter-end') || {
       expression: ''
-    }).expression.split(' ').filter(i => i !== '');
-    transitionClasses(el, enter, enterStart, enterEnd, showCallback, () => {});
+    }).expression));
+    transitionClasses(el, enter, enterStart, enterEnd, showCallback, () => {}, TRANSITION_TYPE_IN);
   }
-  function transitionClassesOut(el, directives, hideCallback) {
-    const leave = (directives.find(i => i.value === 'leave') || {
+  function transitionClassesOut(el, component, directives, hideCallback) {
+    const leave = convertClassStringToArray((directives.find(i => i.value === 'leave') || {
       expression: ''
-    }).expression.split(' ').filter(i => i !== '');
-    const leaveStart = (directives.find(i => i.value === 'leave-start') || {
+    }).expression);
+    const leaveStart = convertClassStringToArray((directives.find(i => i.value === 'leave-start') || {
       expression: ''
-    }).expression.split(' ').filter(i => i !== '');
-    const leaveEnd = (directives.find(i => i.value === 'leave-end') || {
+    }).expression);
+    const leaveEnd = convertClassStringToArray((directives.find(i => i.value === 'leave-end') || {
       expression: ''
-    }).expression.split(' ').filter(i => i !== '');
-    transitionClasses(el, leave, leaveStart, leaveEnd, () => {}, hideCallback);
+    }).expression);
+    transitionClasses(el, leave, leaveStart, leaveEnd, () => {}, hideCallback, TRANSITION_TYPE_OUT);
   }
-  function transitionClasses(el, classesDuring, classesStart, classesEnd, hook1, hook2) {
+  function transitionClasses(el, classesDuring, classesStart, classesEnd, hook1, hook2, type) {
+    // clear the previous transition if exists to avoid caching the wrong classes
+    if (el.__x_transition) {
+      cancelAnimationFrame(el.__x_transition.nextFrame);
+      el.__x_transition.callback && el.__x_transition.callback();
+    }
+
     const originalClasses = el.__x_original_classes || [];
     const stages = {
       start() {
@@ -454,58 +533,80 @@
       }
 
     };
-    transition(el, stages);
+    transition(el, stages, type);
   }
-  function transition(el, stages) {
+  function transition(el, stages, type) {
+    el.__x_transition = {
+      // Set transition type so we can avoid clearing transition if the direction is the same
+      type: type,
+      // create a callback for the last stages of the transition so we can call it
+      // from different point and early terminate it. Once will ensure that function
+      // is only called one time.
+      callback: once(() => {
+        stages.hide(); // Adding an "isConnected" check, in case the callback
+        // removed the element from the DOM.
+
+        if (el.isConnected) {
+          stages.cleanup();
+        }
+
+        delete el.__x_transition;
+      }),
+      // This store the next animation frame so we can cancel it
+      nextFrame: null
+    };
     stages.start();
     stages.during();
-    requestAnimationFrame(() => {
+    el.__x_transition.nextFrame = requestAnimationFrame(() => {
       // Note: Safari's transitionDuration property will list out comma separated transition durations
       // for every single transition property. Let's grab the first one and call it a day.
       let duration = Number(getComputedStyle(el).transitionDuration.replace(/,.*/, '').replace('s', '')) * 1000;
-      stages.show();
-      requestAnimationFrame(() => {
-        stages.end();
-        setTimeout(() => {
-          stages.hide(); // Adding an "isConnected" check, in case the callback
-          // removed the element from the DOM.
 
-          if (el.isConnected) {
-            stages.cleanup();
-          }
-        }, duration);
+      if (duration === 0) {
+        duration = Number(getComputedStyle(el).animationDuration.replace('s', '')) * 1000;
+      }
+
+      stages.show();
+      el.__x_transition.nextFrame = requestAnimationFrame(() => {
+        stages.end();
+        setTimeout(el.__x_transition.callback, duration);
       });
     });
   }
   function isNumeric(subject) {
     return !isNaN(subject);
+  } // Thanks @vuejs
+  // https://github.com/vuejs/vue/blob/4de4649d9637262a9b007720b59f80ac72a5620c/src/shared/util.js
+
+  function once(callback) {
+    let called = false;
+    return function () {
+      if (!called) {
+        called = true;
+        callback.apply(this, arguments);
+      }
+    };
   }
 
   function handleForDirective(component, templateEl, expression, initialUpdate, extraVars) {
-    warnIfNotTemplateTag(templateEl);
-    let iteratorNames = parseForExpression(expression);
+    warnIfMalformedTemplate(templateEl, 'x-for');
+    let iteratorNames = typeof expression === 'function' ? parseForExpression(component.evaluateReturnExpression(templateEl, expression)) : parseForExpression(expression);
     let items = evaluateItemsAndReturnEmptyIfXIfIsPresentAndFalseOnElement(component, templateEl, iteratorNames, extraVars); // As we walk the array, we'll also walk the DOM (updating/creating as we go).
 
     let currentEl = templateEl;
     items.forEach((item, index) => {
       let iterationScopeVariables = getIterationScopeVariables(iteratorNames, item, index, items, extraVars());
       let currentKey = generateKeyForIteration(component, templateEl, index, iterationScopeVariables);
-      let nextEl = currentEl.nextElementSibling; // If there's no previously x-for processed element ahead, add one.
+      let nextEl = lookAheadForMatchingKeyedElementAndMoveItIfFound(currentEl.nextElementSibling, currentKey); // If we haven't found a matching key, insert the element at the current position.
 
-      if (!nextEl || nextEl.__x_for_key === undefined) {
+      if (!nextEl) {
         nextEl = addElementInLoopAfterCurrentEl(templateEl, currentEl); // And transition it in if it's not the first page load.
 
-        transitionIn(nextEl, () => {}, initialUpdate);
+        transitionIn(nextEl, () => {}, component, initialUpdate);
         nextEl.__x_for = iterationScopeVariables;
-        component.initializeElements(nextEl, () => nextEl.__x_for);
+        component.initializeElements(nextEl, () => nextEl.__x_for); // Otherwise update the element we found.
       } else {
-        nextEl = lookAheadForMatchingKeyedElementAndMoveItIfFound(nextEl, currentKey); // If we haven't found a matching key, just insert the element at the current position
-
-        if (!nextEl) {
-          nextEl = addElementInLoopAfterCurrentEl(templateEl, currentEl);
-        } // Temporarily remove the key indicator to allow the normal "updateElements" to work
-
-
+        // Temporarily remove the key indicator to allow the normal "updateElements" to work.
         delete nextEl.__x_for_key;
         nextEl.__x_for = iterationScopeVariables;
         component.updateElements(nextEl, () => nextEl.__x_for);
@@ -514,7 +615,7 @@
       currentEl = nextEl;
       currentEl.__x_for_key = currentKey;
     });
-    removeAnyLeftOverElementsFromPreviousUpdate(currentEl);
+    removeAnyLeftOverElementsFromPreviousUpdate(currentEl, component);
   } // This was taken from VueJS 2.* core. Thanks Vue!
 
   function parseForExpression(expression) {
@@ -552,18 +653,14 @@
   }
 
   function generateKeyForIteration(component, el, index, iterationScopeVariables) {
-    let bindKeyAttribute = getXAttrs(el, 'bind').filter(attr => attr.value === 'key')[0]; // If the dev hasn't specified a key, just return the index of the iteration.
+    let bindKeyAttribute = getXAttrs(el, component, 'bind').filter(attr => attr.value === 'key')[0]; // If the dev hasn't specified a key, just return the index of the iteration.
 
     if (!bindKeyAttribute) return index;
     return component.evaluateReturnExpression(el, bindKeyAttribute.expression, () => iterationScopeVariables);
   }
 
-  function warnIfNotTemplateTag(el) {
-    if (el.tagName.toLowerCase() !== 'template') console.warn('Alpine: [x-for] directive should only be added to <template> tags.');
-  }
-
   function evaluateItemsAndReturnEmptyIfXIfIsPresentAndFalseOnElement(component, el, iteratorNames, extraVars) {
-    let ifAttribute = getXAttrs(el, 'if')[0];
+    let ifAttribute = getXAttrs(el, component, 'if')[0];
 
     if (ifAttribute && !component.evaluateReturnExpression(el, ifAttribute.expression)) {
       return [];
@@ -574,13 +671,13 @@
 
   function addElementInLoopAfterCurrentEl(templateEl, currentEl) {
     let clone = document.importNode(templateEl.content, true);
-    if (clone.childElementCount !== 1) console.warn('Alpine: <template> tag with [x-for] encountered with multiple element roots. Make sure <template> only has a single child node.');
     currentEl.parentElement.insertBefore(clone, currentEl.nextElementSibling);
     return currentEl.nextElementSibling;
   }
 
   function lookAheadForMatchingKeyedElementAndMoveItIfFound(nextEl, currentKey) {
-    // If the the key's DO match, no need to look ahead.
+    if (!nextEl) return; // If the the key's DO match, no need to look ahead.
+
     if (nextEl.__x_for_key === currentKey) return nextEl; // If they don't, we'll look ahead for a match.
     // If we find it, we'll move it to the current position in the loop.
 
@@ -595,7 +692,7 @@
     }
   }
 
-  function removeAnyLeftOverElementsFromPreviousUpdate(currentEl) {
+  function removeAnyLeftOverElementsFromPreviousUpdate(currentEl, component) {
     var nextElementFromOldLoop = currentEl.nextElementSibling && currentEl.nextElementSibling.__x_for_key !== undefined ? currentEl.nextElementSibling : false;
 
     while (nextElementFromOldLoop) {
@@ -603,12 +700,12 @@
       let nextSibling = nextElementFromOldLoop.nextElementSibling;
       transitionOut(nextElementFromOldLoop, () => {
         nextElementFromOldLoopImmutable.remove();
-      });
+      }, component);
       nextElementFromOldLoop = nextSibling && nextSibling.__x_for_key !== undefined ? nextSibling : false;
     }
   }
 
-  function handleAttributeBindingDirective(component, el, attrName, expression, extraVars, attrType) {
+  function handleAttributeBindingDirective(component, el, attrName, expression, extraVars, attrType, modifiers) {
     var value = component.evaluateReturnExpression(el, expression, extraVars);
 
     if (attrName === 'value') {
@@ -627,40 +724,25 @@
           el.checked = el.value == value;
         }
       } else if (el.type === 'checkbox') {
-        if (Array.isArray(value)) {
-          // I'm purposely not using Array.includes here because it's
-          // strict, and because of Numeric/String mis-casting, I
-          // want the "includes" to be "fuzzy".
-          let valueFound = false;
-          value.forEach(val => {
-            if (val == el.value) {
-              valueFound = true;
-            }
-          });
-          el.checked = valueFound;
-        } else {
-          el.checked = !!value;
-        } // If we are explicitly binding a string to the :value, set the string,
+        // If we are explicitly binding a string to the :value, set the string,
         // If the value is a boolean, leave it alone, it will be set to "on"
         // automatically.
-
-
-        if (typeof value === 'string') {
+        if (typeof value === 'string' && attrType === 'bind') {
           el.value = value;
+        } else if (attrType !== 'bind') {
+          if (Array.isArray(value)) {
+            // I'm purposely not using Array.includes here because it's
+            // strict, and because of Numeric/String mis-casting, I
+            // want the "includes" to be "fuzzy".
+            el.checked = value.some(val => val == el.value);
+          } else {
+            el.checked = !!value;
+          }
         }
       } else if (el.tagName === 'SELECT') {
         updateSelect(el, value);
-      } else if (el.type === 'text') {
-        // Cursor position should be restored back to origin due to a safari bug
-        const selectionStart = el.selectionStart;
-        const selectionEnd = el.selectionEnd;
-        const selectionDirection = el.selectionDirection;
-        el.value = value;
-
-        if (el === document.activeElement && selectionStart !== null) {
-          el.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
-        }
       } else {
+        if (el.value === value) return;
         el.value = value;
       }
     } else if (attrName === 'class') {
@@ -673,24 +755,29 @@
         const keysSortedByBooleanValue = Object.keys(value).sort((a, b) => value[a] - value[b]);
         keysSortedByBooleanValue.forEach(classNames => {
           if (value[classNames]) {
-            classNames.split(' ').forEach(className => el.classList.add(className));
+            convertClassStringToArray(classNames).forEach(className => el.classList.add(className));
           } else {
-            classNames.split(' ').forEach(className => el.classList.remove(className));
+            convertClassStringToArray(classNames).forEach(className => el.classList.remove(className));
           }
         });
       } else {
         const originalClasses = el.__x_original_classes || [];
-        const newClasses = value.split(' ');
+        const newClasses = convertClassStringToArray(value);
         el.setAttribute('class', arrayUnique(originalClasses.concat(newClasses)).join(' '));
       }
-    } else if (isBooleanAttr(attrName)) {
-      // Boolean attributes have to be explicitly added and removed, not just set.
-      if (!!value) {
-        el.setAttribute(attrName, '');
-      } else {
-        el.removeAttribute(attrName);
-      }
     } else {
+      attrName = modifiers.includes('camel') ? camelCase(attrName) : attrName; // If an attribute's bound value is null, undefined or false, remove the attribute
+
+      if ([null, undefined, false].includes(value)) {
+        el.removeAttribute(attrName);
+      } else {
+        isBooleanAttr(attrName) ? setIfChanged(el, attrName, attrName) : setIfChanged(el, attrName, value);
+      }
+    }
+  }
+
+  function setIfChanged(el, attrName, value) {
+    if (el.getAttribute(attrName) != value) {
       el.setAttribute(attrName, value);
     }
   }
@@ -706,7 +793,7 @@
 
   function handleTextDirective(el, output, expression) {
     // If nested model key is undefined, set the default value to empty string.
-    if (output === undefined && expression.match(/\./).length) {
+    if (output === undefined && expression.match(/\./)) {
       output = '';
     }
 
@@ -741,25 +828,24 @@
     }
 
     const handle = resolve => {
-      if (!value) {
+      if (value) {
+        if (el.style.display === 'none' || el.__x_transition) {
+          transitionIn(el, () => {
+            show();
+          }, component);
+        }
+
+        resolve(() => {});
+      } else {
         if (el.style.display !== 'none') {
           transitionOut(el, () => {
             resolve(() => {
               hide();
             });
-          });
+          }, component);
         } else {
           resolve(() => {});
         }
-      } else {
-        if (el.style.display !== '') {
-          transitionIn(el, () => {
-            show();
-          });
-        } // Resolve immediately, only hold up parent `x-show`s for hidin.
-
-
-        resolve(() => {});
       }
     }; // The working of x-show is a bit complex because we need to
     // wait for any child transitions to finish before hiding
@@ -777,34 +863,41 @@
 
     if (component.showDirectiveLastElement && !component.showDirectiveLastElement.contains(el)) {
       component.executeAndClearRemainingShowDirectiveStack();
-    } // We'll push the handler onto a stack to be handled later.
-
+    }
 
     component.showDirectiveStack.push(handle);
     component.showDirectiveLastElement = el;
   }
 
   function handleIfDirective(component, el, expressionResult, initialUpdate, extraVars) {
-    if (el.nodeName.toLowerCase() !== 'template') console.warn(`Alpine: [x-if] directive should only be added to <template> tags. See https://github.com/alpinejs/alpine#x-if`);
+    warnIfMalformedTemplate(el, 'x-if');
     const elementHasAlreadyBeenAdded = el.nextElementSibling && el.nextElementSibling.__x_inserted_me === true;
 
-    if (expressionResult && !elementHasAlreadyBeenAdded) {
+    if (expressionResult && (!elementHasAlreadyBeenAdded || el.__x_transition)) {
       const clone = document.importNode(el.content, true);
       el.parentElement.insertBefore(clone, el.nextElementSibling);
-      transitionIn(el.nextElementSibling, () => {}, initialUpdate);
+      transitionIn(el.nextElementSibling, () => {}, component, initialUpdate);
       component.initializeElements(el.nextElementSibling, extraVars);
       el.nextElementSibling.__x_inserted_me = true;
     } else if (!expressionResult && elementHasAlreadyBeenAdded) {
       transitionOut(el.nextElementSibling, () => {
         el.nextElementSibling.remove();
-      }, initialUpdate);
+      }, component, initialUpdate);
     }
   }
 
   function registerListener(component, el, event, modifiers, expression, extraVars = {}) {
+    const options = {
+      passive: modifiers.includes('passive')
+    };
+
+    if (modifiers.includes('camel')) {
+      event = camelCase(event);
+    }
+
     if (modifiers.includes('away')) {
       let handler = e => {
-        // Don't do anything if the click came form the element or within it.
+        // Don't do anything if the click came from the element or within it.
         if (el.contains(e.target)) return; // Don't do anything if this element isn't currently visible.
 
         if (el.offsetWidth < 1 && el.offsetHeight < 1) return; // Now that we are sure the element is visible, AND the click
@@ -813,12 +906,12 @@
         runListenerHandler(component, expression, e, extraVars);
 
         if (modifiers.includes('once')) {
-          document.removeEventListener(event, handler);
+          document.removeEventListener(event, handler, options);
         }
       }; // Listen for this event at the root level.
 
 
-      document.addEventListener(event, handler);
+      document.addEventListener(event, handler, options);
     } else {
       let listenerTarget = modifiers.includes('window') ? window : modifiers.includes('document') ? document : el;
 
@@ -827,7 +920,7 @@
         // has been removed. It's now stale.
         if (listenerTarget === window || listenerTarget === document) {
           if (!document.body.contains(el)) {
-            listenerTarget.removeEventListener(event, handler);
+            listenerTarget.removeEventListener(event, handler, options);
             return;
           }
         }
@@ -850,7 +943,7 @@
             e.preventDefault();
           } else {
             if (modifiers.includes('once')) {
-              listenerTarget.removeEventListener(event, handler);
+              listenerTarget.removeEventListener(event, handler, options);
             }
           }
         }
@@ -862,13 +955,13 @@
         handler = debounce(handler, wait);
       }
 
-      listenerTarget.addEventListener(event, handler);
+      listenerTarget.addEventListener(event, handler, options);
     }
   }
 
   function runListenerHandler(component, expression, e, extraVars) {
     return component.evaluateCommandExpression(e.target, expression, () => {
-      return _objectSpread2({}, extraVars(), {
+      return _objectSpread2(_objectSpread2({}, extraVars()), {}, {
         '$event': e
       });
     });
@@ -934,7 +1027,7 @@
     var event = el.tagName.toLowerCase() === 'select' || ['checkbox', 'radio'].includes(el.type) || modifiers.includes('lazy') ? 'change' : 'input';
     const listenerExpression = `${expression} = rightSideOfExpression($event, ${expression})`;
     registerListener(component, el, event, modifiers, listenerExpression, () => {
-      return _objectSpread2({}, extraVars(), {
+      return _objectSpread2(_objectSpread2({}, extraVars()), {}, {
         rightSideOfExpression: generateModelAssignmentFunction(el, modifiers, expression)
       });
     });
@@ -953,26 +1046,30 @@
       if (event instanceof CustomEvent && event.detail) {
         return event.detail;
       } else if (el.type === 'checkbox') {
-        // If the data we are binding to is an array, toggle it's value inside the array.
+        // If the data we are binding to is an array, toggle its value inside the array.
         if (Array.isArray(currentValue)) {
-          return event.target.checked ? currentValue.concat([event.target.value]) : currentValue.filter(i => i !== event.target.value);
+          const newValue = modifiers.includes('number') ? safeParseNumber(event.target.value) : event.target.value;
+          return event.target.checked ? currentValue.concat([newValue]) : currentValue.filter(i => i !== newValue);
         } else {
           return event.target.checked;
         }
       } else if (el.tagName.toLowerCase() === 'select' && el.multiple) {
         return modifiers.includes('number') ? Array.from(event.target.selectedOptions).map(option => {
           const rawValue = option.value || option.text;
-          const number = rawValue ? parseFloat(rawValue) : null;
-          return isNaN(number) ? rawValue : number;
+          return safeParseNumber(rawValue);
         }) : Array.from(event.target.selectedOptions).map(option => {
           return option.value || option.text;
         });
       } else {
         const rawValue = event.target.value;
-        const number = rawValue ? parseFloat(rawValue) : null;
-        return modifiers.includes('number') ? isNaN(number) ? rawValue : number : modifiers.includes('trim') ? rawValue.trim() : rawValue;
+        return modifiers.includes('number') ? safeParseNumber(rawValue) : modifiers.includes('trim') ? rawValue.trim() : rawValue;
       }
     };
+  }
+
+  function safeParseNumber(rawValue) {
+    const number = rawValue ? parseFloat(rawValue) : null;
+    return isNumeric(number) ? number : rawValue;
   }
 
   /**
@@ -1375,12 +1472,14 @@
   }
 
   class Component {
-    constructor(el, seedDataForCloning = null) {
+    constructor(el, componentForClone = null) {
       this.$el = el;
       const dataAttr = this.$el.getAttribute('x-data');
       const dataExpression = dataAttr === '' ? '{}' : dataAttr;
       const initExpression = this.$el.getAttribute('x-init');
-      this.unobservedData = seedDataForCloning ? seedDataForCloning : saferEval(dataExpression, {});
+      this.unobservedData = componentForClone ? componentForClone.getUnobservedData() : saferEval(dataExpression, {
+        $el: this.$el
+      });
       // Construct a Proxy-based observable. This will be used to handle reactivity.
 
       let {
@@ -1406,11 +1505,20 @@
         this.watchers[property].push(callback);
       };
 
+      let canonicalComponentElementReference = componentForClone ? componentForClone.$el : this.$el; // Register custom magic properties.
+
+      Object.entries(Alpine.magicProperties).forEach(([name, callback]) => {
+        Object.defineProperty(this.unobservedData, `$${name}`, {
+          get: function get() {
+            return callback(canonicalComponentElementReference);
+          }
+        });
+      });
       this.showDirectiveStack = [];
       this.showDirectiveLastElement;
       var initReturnedCallback; // If x-init is present AND we aren't cloning (skip x-init on clone)
 
-      if (initExpression && !seedDataForCloning) {
+      if (initExpression && !componentForClone) {
         // We want to allow data manipulation, but not trigger DOM updates just yet.
         // We haven't even initialized the elements with their Alpine bindings. I mean c'mon.
         this.pauseReactivity = true;
@@ -1429,6 +1537,10 @@
         // Alpine's got it's grubby little paws all over everything.
         initReturnedCallback.call(this.$data);
       }
+
+      componentForClone || setTimeout(() => {
+        Alpine.onComponentInitializeds.forEach(callback => callback(this));
+      }, 0);
     }
 
     getUnobservedData() {
@@ -1505,8 +1617,8 @@
     initializeElement(el, extraVars) {
       // To support class attribute merging, we have to know what the element's
       // original class attribute looked like for reference.
-      if (el.hasAttribute('class') && getXAttrs(el).length > 0) {
-        el.__x_original_classes = el.getAttribute('class').split(' ');
+      if (el.hasAttribute('class') && getXAttrs(el, this).length > 0) {
+        el.__x_original_classes = convertClassStringToArray(el.getAttribute('class'));
       }
 
       this.registerListeners(el, extraVars);
@@ -1527,11 +1639,14 @@
 
     executeAndClearNextTickStack(el) {
       // Skip spawns from alpine directives
-      if (el === this.$el) {
-        // Walk through the $nextTick stack and clear it as we go.
-        while (this.nextTickStack.length > 0) {
-          this.nextTickStack.shift()();
-        }
+      if (el === this.$el && this.nextTickStack.length > 0) {
+        // We run the tick stack after the next frame to allow any
+        // running transitions to pass the initial show stage.
+        requestAnimationFrame(() => {
+          while (this.nextTickStack.length > 0) {
+            this.nextTickStack.shift()();
+          }
+        });
       }
     }
 
@@ -1560,7 +1675,7 @@
     }
 
     registerListeners(el, extraVars) {
-      getXAttrs(el).forEach(({
+      getXAttrs(el, this).forEach(({
         type,
         value,
         modifiers,
@@ -1579,7 +1694,7 @@
     }
 
     resolveBoundAttributes(el, initialUpdate = false, extraVars) {
-      let attrs = getXAttrs(el);
+      let attrs = getXAttrs(el, this);
 
       if (el.type !== undefined && el.type === 'radio') {
         // If there's an x-model on a radio input, move it to end of attribute list
@@ -1599,13 +1714,13 @@
       }) => {
         switch (type) {
           case 'model':
-            handleAttributeBindingDirective(this, el, 'value', expression, extraVars, type);
+            handleAttributeBindingDirective(this, el, 'value', expression, extraVars, type, modifiers);
             break;
 
           case 'bind':
             // The :key binding on an x-for is special, ignore it.
             if (el.tagName.toLowerCase() === 'template' && value === 'key') return;
-            handleAttributeBindingDirective(this, el, value, expression, extraVars, type);
+            handleAttributeBindingDirective(this, el, value, expression, extraVars, type, modifiers);
             break;
 
           case 'text':
@@ -1625,7 +1740,7 @@
           case 'if':
             // If this element also has x-for on it, don't process x-if.
             // We will let the "x-for" directive handle the "if"ing.
-            if (attrs.filter(i => i.type === 'for').length > 0) return;
+            if (attrs.some(i => i.type === 'for')) return;
             var output = this.evaluateReturnExpression(el, expression, extraVars);
             handleIfDirective(this, el, output, initialUpdate, extraVars);
             break;
@@ -1642,13 +1757,13 @@
     }
 
     evaluateReturnExpression(el, expression, extraVars = () => {}) {
-      return saferEval(expression, this.$data, _objectSpread2({}, extraVars(), {
+      return saferEval(expression, this.$data, _objectSpread2(_objectSpread2({}, extraVars()), {}, {
         $dispatch: this.getDispatchFunction(el)
       }));
     }
 
     evaluateCommandExpression(el, expression, extraVars = () => {}) {
-      return saferEvalNoReturn(expression, this.$data, _objectSpread2({}, extraVars(), {
+      return saferEvalNoReturn(expression, this.$data, _objectSpread2(_objectSpread2({}, extraVars()), {}, {
         $dispatch: this.getDispatchFunction(el)
       }));
     }
@@ -1676,7 +1791,9 @@
           if (!(closestParentComponent && closestParentComponent.isSameNode(this.$el))) continue;
 
           if (mutations[i].type === 'attributes' && mutations[i].attributeName === 'x-data') {
-            const rawData = saferEval(mutations[i].target.getAttribute('x-data'), {});
+            const rawData = saferEval(mutations[i].target.getAttribute('x-data') || '{}', {
+              $el: this.$el
+            });
             Object.keys(rawData).forEach(key => {
               if (this.$data[key] !== rawData[key]) {
                 this.$data[key] = rawData[key];
@@ -1688,7 +1805,7 @@
             mutations[i].addedNodes.forEach(node => {
               if (node.nodeType !== 1 || node.__x_inserted_me) return;
 
-              if (node.matches('[x-data]')) {
+              if (node.matches('[x-data]') && !node.__x) {
                 node.__x = new Component(node);
                 return;
               }
@@ -1729,7 +1846,10 @@
   }
 
   const Alpine = {
-    version: "2.3.3",
+    version: "2.5.0",
+    pauseMutationObserver: false,
+    magicProperties: {},
+    onComponentInitializeds: [],
     start: async function start() {
       if (!isTesting()) {
         await domReady();
@@ -1769,6 +1889,8 @@
         subtree: true
       };
       const observer = new MutationObserver(mutations => {
+        if (this.pauseMutationObserver) return;
+
         for (let i = 0; i < mutations.length; i++) {
           if (mutations[i].addedNodes.length > 0) {
             mutations[i].addedNodes.forEach(node => {
@@ -1788,13 +1910,27 @@
     },
     initializeComponent: function initializeComponent(el) {
       if (!el.__x) {
-        el.__x = new Component(el);
+        // Wrap in a try/catch so that we don't prevent other components
+        // from initializing when one component contains an error.
+        try {
+          el.__x = new Component(el);
+        } catch (error) {
+          setTimeout(() => {
+            throw error;
+          }, 0);
+        }
       }
     },
     clone: function clone(component, newEl) {
       if (!newEl.__x) {
-        newEl.__x = new Component(newEl, component.getUnobservedData());
+        newEl.__x = new Component(newEl, component);
       }
+    },
+    addMagicProperty: function addMagicProperty(name, callback) {
+      this.magicProperties[name] = callback;
+    },
+    onComponentInitialized: function onComponentInitialized(callback) {
+      this.onComponentInitializeds.push(callback);
     }
   };
 
@@ -19803,15 +19939,25 @@ return src;
 
 function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
-function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
-
-function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
-
-function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
-
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+function _createForOfIteratorHelper(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -19848,9 +19994,7 @@ function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _d
 // to events.
 // It is strongly based on component's emitter class, and I removed the
 // functionality because of the dependency hell with different frameworks.
-var Emitter =
-/*#__PURE__*/
-function () {
+var Emitter = /*#__PURE__*/function () {
   function Emitter() {
     _classCallCheck(this, Emitter);
   }
@@ -19880,28 +20024,18 @@ function () {
           args[_key - 1] = arguments[_key];
         }
 
-        var _iteratorNormalCompletion = true;
-        var _didIteratorError = false;
-        var _iteratorError = undefined;
+        var _iterator = _createForOfIteratorHelper(callbacks),
+            _step;
 
         try {
-          for (var _iterator = callbacks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          for (_iterator.s(); !(_step = _iterator.n()).done;) {
             var callback = _step.value;
             callback.apply(this, args);
           }
         } catch (err) {
-          _didIteratorError = true;
-          _iteratorError = err;
+          _iterator.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion && _iterator["return"] != null) {
-              _iterator["return"]();
-            }
-          } finally {
-            if (_didIteratorError) {
-              throw _iteratorError;
-            }
-          }
+          _iterator.f();
         }
       }
 
@@ -19948,10 +20082,10 @@ function () {
   return Emitter;
 }();
 
-var Dropzone =
-/*#__PURE__*/
-function (_Emitter) {
+var Dropzone = /*#__PURE__*/function (_Emitter) {
   _inherits(Dropzone, _Emitter);
+
+  var _super = _createSuper(Dropzone);
 
   _createClass(Dropzone, null, [{
     key: "initClass",
@@ -20376,12 +20510,12 @@ function (_Emitter) {
           // This code should pass in IE7... :(
           var messageElement;
           this.element.className = "".concat(this.element.className, " dz-browser-not-supported");
-          var _iteratorNormalCompletion2 = true;
-          var _didIteratorError2 = false;
-          var _iteratorError2 = undefined;
+
+          var _iterator2 = _createForOfIteratorHelper(this.element.getElementsByTagName("div")),
+              _step2;
 
           try {
-            for (var _iterator2 = this.element.getElementsByTagName("div")[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
               var child = _step2.value;
 
               if (/(^| )dz-message($| )/.test(child.className)) {
@@ -20392,18 +20526,9 @@ function (_Emitter) {
               }
             }
           } catch (err) {
-            _didIteratorError2 = true;
-            _iteratorError2 = err;
+            _iterator2.e(err);
           } finally {
-            try {
-              if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
-                _iterator2["return"]();
-              }
-            } finally {
-              if (_didIteratorError2) {
-                throw _iteratorError2;
-              }
-            }
+            _iterator2.f();
           }
 
           if (!messageElement) {
@@ -20568,52 +20693,33 @@ function (_Emitter) {
             file.previewTemplate = file.previewElement; // Backwards compatibility
 
             this.previewsContainer.appendChild(file.previewElement);
-            var _iteratorNormalCompletion3 = true;
-            var _didIteratorError3 = false;
-            var _iteratorError3 = undefined;
+
+            var _iterator3 = _createForOfIteratorHelper(file.previewElement.querySelectorAll("[data-dz-name]")),
+                _step3;
 
             try {
-              for (var _iterator3 = file.previewElement.querySelectorAll("[data-dz-name]")[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+              for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
                 var node = _step3.value;
                 node.textContent = file.name;
               }
             } catch (err) {
-              _didIteratorError3 = true;
-              _iteratorError3 = err;
+              _iterator3.e(err);
             } finally {
-              try {
-                if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
-                  _iterator3["return"]();
-                }
-              } finally {
-                if (_didIteratorError3) {
-                  throw _iteratorError3;
-                }
-              }
+              _iterator3.f();
             }
 
-            var _iteratorNormalCompletion4 = true;
-            var _didIteratorError4 = false;
-            var _iteratorError4 = undefined;
+            var _iterator4 = _createForOfIteratorHelper(file.previewElement.querySelectorAll("[data-dz-size]")),
+                _step4;
 
             try {
-              for (var _iterator4 = file.previewElement.querySelectorAll("[data-dz-size]")[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+              for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
                 node = _step4.value;
                 node.innerHTML = this.filesize(file.size);
               }
             } catch (err) {
-              _didIteratorError4 = true;
-              _iteratorError4 = err;
+              _iterator4.e(err);
             } finally {
-              try {
-                if (!_iteratorNormalCompletion4 && _iterator4["return"] != null) {
-                  _iterator4["return"]();
-                }
-              } finally {
-                if (_didIteratorError4) {
-                  throw _iteratorError4;
-                }
-              }
+              _iterator4.f();
             }
 
             if (this.options.addRemoveLinks) {
@@ -20640,28 +20746,18 @@ function (_Emitter) {
               }
             };
 
-            var _iteratorNormalCompletion5 = true;
-            var _didIteratorError5 = false;
-            var _iteratorError5 = undefined;
+            var _iterator5 = _createForOfIteratorHelper(file.previewElement.querySelectorAll("[data-dz-remove]")),
+                _step5;
 
             try {
-              for (var _iterator5 = file.previewElement.querySelectorAll("[data-dz-remove]")[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+              for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
                 var removeLink = _step5.value;
                 removeLink.addEventListener("click", removeFileEvent);
               }
             } catch (err) {
-              _didIteratorError5 = true;
-              _iteratorError5 = err;
+              _iterator5.e(err);
             } finally {
-              try {
-                if (!_iteratorNormalCompletion5 && _iterator5["return"] != null) {
-                  _iterator5["return"]();
-                }
-              } finally {
-                if (_didIteratorError5) {
-                  throw _iteratorError5;
-                }
-              }
+              _iterator5.f();
             }
           }
         },
@@ -20678,29 +20774,20 @@ function (_Emitter) {
         thumbnail: function thumbnail(file, dataUrl) {
           if (file.previewElement) {
             file.previewElement.classList.remove("dz-file-preview");
-            var _iteratorNormalCompletion6 = true;
-            var _didIteratorError6 = false;
-            var _iteratorError6 = undefined;
+
+            var _iterator6 = _createForOfIteratorHelper(file.previewElement.querySelectorAll("[data-dz-thumbnail]")),
+                _step6;
 
             try {
-              for (var _iterator6 = file.previewElement.querySelectorAll("[data-dz-thumbnail]")[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+              for (_iterator6.s(); !(_step6 = _iterator6.n()).done;) {
                 var thumbnailElement = _step6.value;
                 thumbnailElement.alt = file.name;
                 thumbnailElement.src = dataUrl;
               }
             } catch (err) {
-              _didIteratorError6 = true;
-              _iteratorError6 = err;
+              _iterator6.e(err);
             } finally {
-              try {
-                if (!_iteratorNormalCompletion6 && _iterator6["return"] != null) {
-                  _iterator6["return"]();
-                }
-              } finally {
-                if (_didIteratorError6) {
-                  throw _iteratorError6;
-                }
-              }
+              _iterator6.f();
             }
 
             return setTimeout(function () {
@@ -20714,32 +20801,22 @@ function (_Emitter) {
           if (file.previewElement) {
             file.previewElement.classList.add("dz-error");
 
-            if (typeof message !== "String" && message.error) {
+            if (typeof message !== "string" && message.error) {
               message = message.error;
             }
 
-            var _iteratorNormalCompletion7 = true;
-            var _didIteratorError7 = false;
-            var _iteratorError7 = undefined;
+            var _iterator7 = _createForOfIteratorHelper(file.previewElement.querySelectorAll("[data-dz-errormessage]")),
+                _step7;
 
             try {
-              for (var _iterator7 = file.previewElement.querySelectorAll("[data-dz-errormessage]")[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+              for (_iterator7.s(); !(_step7 = _iterator7.n()).done;) {
                 var node = _step7.value;
                 node.textContent = message;
               }
             } catch (err) {
-              _didIteratorError7 = true;
-              _iteratorError7 = err;
+              _iterator7.e(err);
             } finally {
-              try {
-                if (!_iteratorNormalCompletion7 && _iterator7["return"] != null) {
-                  _iterator7["return"]();
-                }
-              } finally {
-                if (_didIteratorError7) {
-                  throw _iteratorError7;
-                }
-              }
+              _iterator7.f();
             }
           }
         },
@@ -20762,28 +20839,18 @@ function (_Emitter) {
         // To get the total number of bytes of the file, use `file.size`
         uploadprogress: function uploadprogress(file, progress, bytesSent) {
           if (file.previewElement) {
-            var _iteratorNormalCompletion8 = true;
-            var _didIteratorError8 = false;
-            var _iteratorError8 = undefined;
+            var _iterator8 = _createForOfIteratorHelper(file.previewElement.querySelectorAll("[data-dz-uploadprogress]")),
+                _step8;
 
             try {
-              for (var _iterator8 = file.previewElement.querySelectorAll("[data-dz-uploadprogress]")[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+              for (_iterator8.s(); !(_step8 = _iterator8.n()).done;) {
                 var node = _step8.value;
                 node.nodeName === 'PROGRESS' ? node.value = progress : node.style.width = "".concat(progress, "%");
               }
             } catch (err) {
-              _didIteratorError8 = true;
-              _iteratorError8 = err;
+              _iterator8.e(err);
             } finally {
-              try {
-                if (!_iteratorNormalCompletion8 && _iterator8["return"] != null) {
-                  _iterator8["return"]();
-                }
-              } finally {
-                if (_didIteratorError8) {
-                  throw _iteratorError8;
-                }
-              }
+              _iterator8.f();
             }
           }
         },
@@ -20854,7 +20921,7 @@ function (_Emitter) {
 
     _classCallCheck(this, Dropzone);
 
-    _this = _possibleConstructorReturn(this, _getPrototypeOf(Dropzone).call(this));
+    _this = _super.call(this);
     var fallback, left;
     _this.element = el; // For backwards compatibility since the version was in the prototype previously
 
@@ -20918,7 +20985,9 @@ function (_Emitter) {
       };
     }
 
-    _this.options.method = _this.options.method.toUpperCase();
+    if (typeof _this.options.method === 'string') {
+      _this.options.method = _this.options.method.toUpperCase();
+    }
 
     if ((fallback = _this.getExistingFallback()) && fallback.parentNode) {
       // Remove the fallback
@@ -21056,29 +21125,19 @@ function (_Emitter) {
             var files = _this3.hiddenFileInput.files;
 
             if (files.length) {
-              var _iteratorNormalCompletion9 = true;
-              var _didIteratorError9 = false;
-              var _iteratorError9 = undefined;
+              var _iterator9 = _createForOfIteratorHelper(files),
+                  _step9;
 
               try {
-                for (var _iterator9 = files[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+                for (_iterator9.s(); !(_step9 = _iterator9.n()).done;) {
                   var file = _step9.value;
 
                   _this3.addFile(file);
                 }
               } catch (err) {
-                _didIteratorError9 = true;
-                _iteratorError9 = err;
+                _iterator9.e(err);
               } finally {
-                try {
-                  if (!_iteratorNormalCompletion9 && _iterator9["return"] != null) {
-                    _iterator9["return"]();
-                  }
-                } finally {
-                  if (_didIteratorError9) {
-                    throw _iteratorError9;
-                  }
-                }
+                _iterator9.f();
               }
             }
 
@@ -21095,28 +21154,18 @@ function (_Emitter) {
       // They're not in @setupEventListeners() because they shouldn't be removed
       // again when the dropzone gets disabled.
 
-      var _iteratorNormalCompletion10 = true;
-      var _didIteratorError10 = false;
-      var _iteratorError10 = undefined;
+      var _iterator10 = _createForOfIteratorHelper(this.events),
+          _step10;
 
       try {
-        for (var _iterator10 = this.events[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+        for (_iterator10.s(); !(_step10 = _iterator10.n()).done;) {
           var eventName = _step10.value;
           this.on(eventName, this.options[eventName]);
         }
       } catch (err) {
-        _didIteratorError10 = true;
-        _iteratorError10 = err;
+        _iterator10.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion10 && _iterator10["return"] != null) {
-            _iterator10["return"]();
-          }
-        } finally {
-          if (_didIteratorError10) {
-            throw _iteratorError10;
-          }
-        }
+        _iterator10.f();
       }
 
       this.on("uploadprogress", function () {
@@ -21139,9 +21188,16 @@ function (_Emitter) {
       });
 
       var containsFiles = function containsFiles(e) {
-        return e.dataTransfer.types && e.dataTransfer.types.some(function (type) {
-          return type == "Files";
-        });
+        if (e.dataTransfer.types) {
+          // Because e.dataTransfer.types is an Object in
+          // IE, we need to iterate like this instead of
+          // using e.dataTransfer.types.some()
+          for (var i = 0; i < e.dataTransfer.types.length; i++) {
+            if (e.dataTransfer.types[i] === "Files") return true;
+          }
+        }
+
+        return false;
       };
 
       var noPropagation = function noPropagation(e) {
@@ -21242,29 +21298,19 @@ function (_Emitter) {
       var activeFiles = this.getActiveFiles();
 
       if (activeFiles.length) {
-        var _iteratorNormalCompletion11 = true;
-        var _didIteratorError11 = false;
-        var _iteratorError11 = undefined;
+        var _iterator11 = _createForOfIteratorHelper(this.getActiveFiles()),
+            _step11;
 
         try {
-          for (var _iterator11 = this.getActiveFiles()[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+          for (_iterator11.s(); !(_step11 = _iterator11.n()).done;) {
             var file = _step11.value;
             totalBytesSent += file.upload.bytesSent;
             totalBytes += file.upload.total;
           }
         } catch (err) {
-          _didIteratorError11 = true;
-          _iteratorError11 = err;
+          _iterator11.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion11 && _iterator11["return"] != null) {
-              _iterator11["return"]();
-            }
-          } finally {
-            if (_didIteratorError11) {
-              throw _iteratorError11;
-            }
-          }
+          _iterator11.f();
         }
 
         totalUploadProgress = 100 * totalBytesSent / totalBytes;
@@ -21336,12 +21382,11 @@ function (_Emitter) {
     key: "getExistingFallback",
     value: function getExistingFallback() {
       var getFallback = function getFallback(elements) {
-        var _iteratorNormalCompletion12 = true;
-        var _didIteratorError12 = false;
-        var _iteratorError12 = undefined;
+        var _iterator12 = _createForOfIteratorHelper(elements),
+            _step12;
 
         try {
-          for (var _iterator12 = elements[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+          for (_iterator12.s(); !(_step12 = _iterator12.n()).done;) {
             var el = _step12.value;
 
             if (/(^| )fallback($| )/.test(el.className)) {
@@ -21349,18 +21394,9 @@ function (_Emitter) {
             }
           }
         } catch (err) {
-          _didIteratorError12 = true;
-          _iteratorError12 = err;
+          _iterator12.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion12 && _iterator12["return"] != null) {
-              _iterator12["return"]();
-            }
-          } finally {
-            if (_didIteratorError12) {
-              throw _iteratorError12;
-            }
-          }
+          _iterator12.f();
         }
       };
 
@@ -21520,28 +21556,18 @@ function (_Emitter) {
   }, {
     key: "handleFiles",
     value: function handleFiles(files) {
-      var _iteratorNormalCompletion13 = true;
-      var _didIteratorError13 = false;
-      var _iteratorError13 = undefined;
+      var _iterator13 = _createForOfIteratorHelper(files),
+          _step13;
 
       try {
-        for (var _iterator13 = files[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
+        for (_iterator13.s(); !(_step13 = _iterator13.n()).done;) {
           var file = _step13.value;
           this.addFile(file);
         }
       } catch (err) {
-        _didIteratorError13 = true;
-        _iteratorError13 = err;
+        _iterator13.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion13 && _iterator13["return"] != null) {
-            _iterator13["return"]();
-          }
-        } finally {
-          if (_didIteratorError13) {
-            throw _iteratorError13;
-          }
-        }
+        _iterator13.f();
       }
     } // When a folder is dropped (or files are pasted), items must be handled
     // instead of files.
@@ -21553,12 +21579,12 @@ function (_Emitter) {
 
       return function () {
         var result = [];
-        var _iteratorNormalCompletion14 = true;
-        var _didIteratorError14 = false;
-        var _iteratorError14 = undefined;
+
+        var _iterator14 = _createForOfIteratorHelper(items),
+            _step14;
 
         try {
-          for (var _iterator14 = items[Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
+          for (_iterator14.s(); !(_step14 = _iterator14.n()).done;) {
             var item = _step14.value;
             var entry;
 
@@ -21582,18 +21608,9 @@ function (_Emitter) {
             }
           }
         } catch (err) {
-          _didIteratorError14 = true;
-          _iteratorError14 = err;
+          _iterator14.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion14 && _iterator14["return"] != null) {
-              _iterator14["return"]();
-            }
-          } finally {
-            if (_didIteratorError14) {
-              throw _iteratorError14;
-            }
-          }
+          _iterator14.f();
         }
 
         return result;
@@ -21616,12 +21633,11 @@ function (_Emitter) {
       var readEntries = function readEntries() {
         return dirReader.readEntries(function (entries) {
           if (entries.length > 0) {
-            var _iteratorNormalCompletion15 = true;
-            var _didIteratorError15 = false;
-            var _iteratorError15 = undefined;
+            var _iterator15 = _createForOfIteratorHelper(entries),
+                _step15;
 
             try {
-              for (var _iterator15 = entries[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
+              for (_iterator15.s(); !(_step15 = _iterator15.n()).done;) {
                 var entry = _step15.value;
 
                 if (entry.isFile) {
@@ -21641,18 +21657,9 @@ function (_Emitter) {
               // See: https://developer.mozilla.org/en-US/docs/Web/API/DirectoryReader#readEntries
 
             } catch (err) {
-              _didIteratorError15 = true;
-              _iteratorError15 = err;
+              _iterator15.e(err);
             } finally {
-              try {
-                if (!_iteratorNormalCompletion15 && _iterator15["return"] != null) {
-                  _iterator15["return"]();
-                }
-              } finally {
-                if (_didIteratorError15) {
-                  throw _iteratorError15;
-                }
-              }
+              _iterator15.f();
             }
 
             readEntries();
@@ -21729,28 +21736,18 @@ function (_Emitter) {
   }, {
     key: "enqueueFiles",
     value: function enqueueFiles(files) {
-      var _iteratorNormalCompletion16 = true;
-      var _didIteratorError16 = false;
-      var _iteratorError16 = undefined;
+      var _iterator16 = _createForOfIteratorHelper(files),
+          _step16;
 
       try {
-        for (var _iterator16 = files[Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
+        for (_iterator16.s(); !(_step16 = _iterator16.n()).done;) {
           var file = _step16.value;
           this.enqueueFile(file);
         }
       } catch (err) {
-        _didIteratorError16 = true;
-        _iteratorError16 = err;
+        _iterator16.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion16 && _iterator16["return"] != null) {
-            _iterator16["return"]();
-          }
-        } finally {
-          if (_didIteratorError16) {
-            throw _iteratorError16;
-          }
-        }
+        _iterator16.f();
       }
 
       return null;
@@ -21829,12 +21826,11 @@ function (_Emitter) {
         cancelIfNecessary = false;
       }
 
-      var _iteratorNormalCompletion17 = true;
-      var _didIteratorError17 = false;
-      var _iteratorError17 = undefined;
+      var _iterator17 = _createForOfIteratorHelper(this.files.slice()),
+          _step17;
 
       try {
-        for (var _iterator17 = this.files.slice()[Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
+        for (_iterator17.s(); !(_step17 = _iterator17.n()).done;) {
           var file = _step17.value;
 
           if (file.status !== Dropzone.UPLOADING || cancelIfNecessary) {
@@ -21842,18 +21838,9 @@ function (_Emitter) {
           }
         }
       } catch (err) {
-        _didIteratorError17 = true;
-        _iteratorError17 = err;
+        _iterator17.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion17 && _iterator17["return"] != null) {
-            _iterator17["return"]();
-          }
-        } finally {
-          if (_didIteratorError17) {
-            throw _iteratorError17;
-          }
-        }
+        _iterator17.f();
       }
 
       return null;
@@ -21951,7 +21938,10 @@ function (_Emitter) {
 
       if (crossOrigin) {
         img.crossOrigin = crossOrigin;
-      }
+      } // fixOrientation is not needed anymore with browsers handling imageOrientation
+
+
+      fixOrientation = getComputedStyle(document.body)['imageOrientation'] == 'from-image' ? false : fixOrientation;
 
       img.onload = function () {
         var loadExif = function loadExif(callback) {
@@ -22086,12 +22076,11 @@ function (_Emitter) {
   }, {
     key: "processFiles",
     value: function processFiles(files) {
-      var _iteratorNormalCompletion18 = true;
-      var _didIteratorError18 = false;
-      var _iteratorError18 = undefined;
+      var _iterator18 = _createForOfIteratorHelper(files),
+          _step18;
 
       try {
-        for (var _iterator18 = files[Symbol.iterator](), _step18; !(_iteratorNormalCompletion18 = (_step18 = _iterator18.next()).done); _iteratorNormalCompletion18 = true) {
+        for (_iterator18.s(); !(_step18 = _iterator18.n()).done;) {
           var file = _step18.value;
           file.processing = true; // Backwards compatibility
 
@@ -22099,18 +22088,9 @@ function (_Emitter) {
           this.emit("processing", file);
         }
       } catch (err) {
-        _didIteratorError18 = true;
-        _iteratorError18 = err;
+        _iterator18.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion18 && _iterator18["return"] != null) {
-            _iterator18["return"]();
-          }
-        } finally {
-          if (_didIteratorError18) {
-            throw _iteratorError18;
-          }
-        }
+        _iterator18.f();
       }
 
       if (this.options.uploadMultiple) {
@@ -22139,56 +22119,36 @@ function (_Emitter) {
       if (file.status === Dropzone.UPLOADING) {
         var groupedFiles = this._getFilesWithXhr(file.xhr);
 
-        var _iteratorNormalCompletion19 = true;
-        var _didIteratorError19 = false;
-        var _iteratorError19 = undefined;
+        var _iterator19 = _createForOfIteratorHelper(groupedFiles),
+            _step19;
 
         try {
-          for (var _iterator19 = groupedFiles[Symbol.iterator](), _step19; !(_iteratorNormalCompletion19 = (_step19 = _iterator19.next()).done); _iteratorNormalCompletion19 = true) {
+          for (_iterator19.s(); !(_step19 = _iterator19.n()).done;) {
             var groupedFile = _step19.value;
             groupedFile.status = Dropzone.CANCELED;
           }
         } catch (err) {
-          _didIteratorError19 = true;
-          _iteratorError19 = err;
+          _iterator19.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion19 && _iterator19["return"] != null) {
-              _iterator19["return"]();
-            }
-          } finally {
-            if (_didIteratorError19) {
-              throw _iteratorError19;
-            }
-          }
+          _iterator19.f();
         }
 
         if (typeof file.xhr !== 'undefined') {
           file.xhr.abort();
         }
 
-        var _iteratorNormalCompletion20 = true;
-        var _didIteratorError20 = false;
-        var _iteratorError20 = undefined;
+        var _iterator20 = _createForOfIteratorHelper(groupedFiles),
+            _step20;
 
         try {
-          for (var _iterator20 = groupedFiles[Symbol.iterator](), _step20; !(_iteratorNormalCompletion20 = (_step20 = _iterator20.next()).done); _iteratorNormalCompletion20 = true) {
+          for (_iterator20.s(); !(_step20 = _iterator20.n()).done;) {
             var _groupedFile = _step20.value;
             this.emit("canceled", _groupedFile);
           }
         } catch (err) {
-          _didIteratorError20 = true;
-          _iteratorError20 = err;
+          _iterator20.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion20 && _iterator20["return"] != null) {
-              _iterator20["return"]();
-            }
-          } finally {
-            if (_didIteratorError20) {
-              throw _iteratorError20;
-            }
-          }
+          _iterator20.f();
         }
 
         if (this.options.uploadMultiple) {
@@ -22259,7 +22219,7 @@ function (_Emitter) {
             if (chunkIndex >= file.upload.totalChunkCount) return;
             startedChunkCount++;
             var start = chunkIndex * _this15.options.chunkSize;
-            var end = Math.min(start + _this15.options.chunkSize, file.size);
+            var end = Math.min(start + _this15.options.chunkSize, _transformedFile.size);
             var dataBlock = {
               name: _this15._getParamName(0),
               data: _transformedFile.webkitSlice ? _transformedFile.webkitSlice(start, end) : _transformedFile.slice(start, end),
@@ -22347,28 +22307,18 @@ function (_Emitter) {
 
       var xhr = new XMLHttpRequest(); // Put the xhr object in the file objects to be able to reference it later.
 
-      var _iteratorNormalCompletion21 = true;
-      var _didIteratorError21 = false;
-      var _iteratorError21 = undefined;
+      var _iterator21 = _createForOfIteratorHelper(files),
+          _step21;
 
       try {
-        for (var _iterator21 = files[Symbol.iterator](), _step21; !(_iteratorNormalCompletion21 = (_step21 = _iterator21.next()).done); _iteratorNormalCompletion21 = true) {
+        for (_iterator21.s(); !(_step21 = _iterator21.n()).done;) {
           var file = _step21.value;
           file.xhr = xhr;
         }
       } catch (err) {
-        _didIteratorError21 = true;
-        _iteratorError21 = err;
+        _iterator21.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion21 && _iterator21["return"] != null) {
-            _iterator21["return"]();
-          }
-        } finally {
-          if (_didIteratorError21) {
-            throw _iteratorError21;
-          }
-        }
+        _iterator21.f();
       }
 
       if (files[0].upload.chunked) {
@@ -22389,7 +22339,7 @@ function (_Emitter) {
       };
 
       xhr.ontimeout = function () {
-        _this16._handleUploadError(files, xhr, "Request timedout after ".concat(_this16.options.timeout, " seconds"));
+        _this16._handleUploadError(files, xhr, "Request timedout after ".concat(_this16.options.timeout / 1000, " seconds"));
       };
 
       xhr.onerror = function () {
@@ -22432,33 +22382,33 @@ function (_Emitter) {
 
         for (var key in additionalParams) {
           var value = additionalParams[key];
-          formData.append(key, value);
+
+          if (Array.isArray(value)) {
+            // The additional parameter contains an array,
+            // so lets iterate over it to attach each value
+            // individually.
+            for (var i = 0; i < value.length; i++) {
+              formData.append(key, value[i]);
+            }
+          } else {
+            formData.append(key, value);
+          }
         }
       } // Let the user add additional data if necessary
 
 
-      var _iteratorNormalCompletion22 = true;
-      var _didIteratorError22 = false;
-      var _iteratorError22 = undefined;
+      var _iterator22 = _createForOfIteratorHelper(files),
+          _step22;
 
       try {
-        for (var _iterator22 = files[Symbol.iterator](), _step22; !(_iteratorNormalCompletion22 = (_step22 = _iterator22.next()).done); _iteratorNormalCompletion22 = true) {
+        for (_iterator22.s(); !(_step22 = _iterator22.n()).done;) {
           var _file = _step22.value;
           this.emit("sending", _file, xhr, formData);
         }
       } catch (err) {
-        _didIteratorError22 = true;
-        _iteratorError22 = err;
+        _iterator22.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion22 && _iterator22["return"] != null) {
-            _iterator22["return"]();
-          }
-        } finally {
-          if (_didIteratorError22) {
-            throw _iteratorError22;
-          }
-        }
+        _iterator22.f();
       }
 
       if (this.options.uploadMultiple) {
@@ -22469,8 +22419,8 @@ function (_Emitter) {
       // Has to be last because some servers (eg: S3) expect the file to be the last parameter
 
 
-      for (var i = 0; i < dataBlocks.length; i++) {
-        var dataBlock = dataBlocks[i];
+      for (var _i4 = 0; _i4 < dataBlocks.length; _i4++) {
+        var dataBlock = dataBlocks[_i4];
         formData.append(dataBlock.name, dataBlock.data, dataBlock.filename);
       }
 
@@ -22506,12 +22456,11 @@ function (_Emitter) {
     value: function _addFormElementData(formData) {
       // Take care of other input elements
       if (this.element.tagName === "FORM") {
-        var _iteratorNormalCompletion23 = true;
-        var _didIteratorError23 = false;
-        var _iteratorError23 = undefined;
+        var _iterator23 = _createForOfIteratorHelper(this.element.querySelectorAll("input, textarea, select, button")),
+            _step23;
 
         try {
-          for (var _iterator23 = this.element.querySelectorAll("input, textarea, select, button")[Symbol.iterator](), _step23; !(_iteratorNormalCompletion23 = (_step23 = _iterator23.next()).done); _iteratorNormalCompletion23 = true) {
+          for (_iterator23.s(); !(_step23 = _iterator23.n()).done;) {
             var input = _step23.value;
             var inputName = input.getAttribute("name");
             var inputType = input.getAttribute("type");
@@ -22521,12 +22470,11 @@ function (_Emitter) {
 
             if (input.tagName === "SELECT" && input.hasAttribute("multiple")) {
               // Possibly multiple values
-              var _iteratorNormalCompletion24 = true;
-              var _didIteratorError24 = false;
-              var _iteratorError24 = undefined;
+              var _iterator24 = _createForOfIteratorHelper(input.options),
+                  _step24;
 
               try {
-                for (var _iterator24 = input.options[Symbol.iterator](), _step24; !(_iteratorNormalCompletion24 = (_step24 = _iterator24.next()).done); _iteratorNormalCompletion24 = true) {
+                for (_iterator24.s(); !(_step24 = _iterator24.n()).done;) {
                   var option = _step24.value;
 
                   if (option.selected) {
@@ -22534,36 +22482,18 @@ function (_Emitter) {
                   }
                 }
               } catch (err) {
-                _didIteratorError24 = true;
-                _iteratorError24 = err;
+                _iterator24.e(err);
               } finally {
-                try {
-                  if (!_iteratorNormalCompletion24 && _iterator24["return"] != null) {
-                    _iterator24["return"]();
-                  }
-                } finally {
-                  if (_didIteratorError24) {
-                    throw _iteratorError24;
-                  }
-                }
+                _iterator24.f();
               }
             } else if (!inputType || inputType !== "checkbox" && inputType !== "radio" || input.checked) {
               formData.append(inputName, input.value);
             }
           }
         } catch (err) {
-          _didIteratorError23 = true;
-          _iteratorError23 = err;
+          _iterator23.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion23 && _iterator23["return"] != null) {
-              _iterator23["return"]();
-            }
-          } finally {
-            if (_didIteratorError23) {
-              throw _iteratorError23;
-            }
-          }
+          _iterator23.f();
         }
       }
     } // Invoked when there is new progress information about given files.
@@ -22602,66 +22532,46 @@ function (_Emitter) {
 
           file.upload.progress = file.upload.progress / file.upload.totalChunkCount;
         } else {
-          var _iteratorNormalCompletion25 = true;
-          var _didIteratorError25 = false;
-          var _iteratorError25 = undefined;
+          var _iterator25 = _createForOfIteratorHelper(files),
+              _step25;
 
           try {
-            for (var _iterator25 = files[Symbol.iterator](), _step25; !(_iteratorNormalCompletion25 = (_step25 = _iterator25.next()).done); _iteratorNormalCompletion25 = true) {
+            for (_iterator25.s(); !(_step25 = _iterator25.n()).done;) {
               var _file2 = _step25.value;
               _file2.upload.progress = progress;
               _file2.upload.total = e.total;
               _file2.upload.bytesSent = e.loaded;
             }
           } catch (err) {
-            _didIteratorError25 = true;
-            _iteratorError25 = err;
+            _iterator25.e(err);
           } finally {
-            try {
-              if (!_iteratorNormalCompletion25 && _iterator25["return"] != null) {
-                _iterator25["return"]();
-              }
-            } finally {
-              if (_didIteratorError25) {
-                throw _iteratorError25;
-              }
-            }
+            _iterator25.f();
           }
         }
 
-        var _iteratorNormalCompletion26 = true;
-        var _didIteratorError26 = false;
-        var _iteratorError26 = undefined;
+        var _iterator26 = _createForOfIteratorHelper(files),
+            _step26;
 
         try {
-          for (var _iterator26 = files[Symbol.iterator](), _step26; !(_iteratorNormalCompletion26 = (_step26 = _iterator26.next()).done); _iteratorNormalCompletion26 = true) {
+          for (_iterator26.s(); !(_step26 = _iterator26.n()).done;) {
             var _file3 = _step26.value;
             this.emit("uploadprogress", _file3, _file3.upload.progress, _file3.upload.bytesSent);
           }
         } catch (err) {
-          _didIteratorError26 = true;
-          _iteratorError26 = err;
+          _iterator26.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion26 && _iterator26["return"] != null) {
-              _iterator26["return"]();
-            }
-          } finally {
-            if (_didIteratorError26) {
-              throw _iteratorError26;
-            }
-          }
+          _iterator26.f();
         }
       } else {
         // Called when the file finished uploading
         var allFilesFinished = true;
         progress = 100;
-        var _iteratorNormalCompletion27 = true;
-        var _didIteratorError27 = false;
-        var _iteratorError27 = undefined;
+
+        var _iterator27 = _createForOfIteratorHelper(files),
+            _step27;
 
         try {
-          for (var _iterator27 = files[Symbol.iterator](), _step27; !(_iteratorNormalCompletion27 = (_step27 = _iterator27.next()).done); _iteratorNormalCompletion27 = true) {
+          for (_iterator27.s(); !(_step27 = _iterator27.n()).done;) {
             var _file4 = _step27.value;
 
             if (_file4.upload.progress !== 100 || _file4.upload.bytesSent !== _file4.upload.total) {
@@ -22673,46 +22583,27 @@ function (_Emitter) {
           } // Nothing to do, all files already at 100%
 
         } catch (err) {
-          _didIteratorError27 = true;
-          _iteratorError27 = err;
+          _iterator27.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion27 && _iterator27["return"] != null) {
-              _iterator27["return"]();
-            }
-          } finally {
-            if (_didIteratorError27) {
-              throw _iteratorError27;
-            }
-          }
+          _iterator27.f();
         }
 
         if (allFilesFinished) {
           return;
         }
 
-        var _iteratorNormalCompletion28 = true;
-        var _didIteratorError28 = false;
-        var _iteratorError28 = undefined;
+        var _iterator28 = _createForOfIteratorHelper(files),
+            _step28;
 
         try {
-          for (var _iterator28 = files[Symbol.iterator](), _step28; !(_iteratorNormalCompletion28 = (_step28 = _iterator28.next()).done); _iteratorNormalCompletion28 = true) {
+          for (_iterator28.s(); !(_step28 = _iterator28.n()).done;) {
             var _file5 = _step28.value;
             this.emit("uploadprogress", _file5, progress, _file5.upload.bytesSent);
           }
         } catch (err) {
-          _didIteratorError28 = true;
-          _iteratorError28 = err;
+          _iterator28.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion28 && _iterator28["return"] != null) {
-              _iterator28["return"]();
-            }
-          } finally {
-            if (_didIteratorError28) {
-              throw _iteratorError28;
-            }
-          }
+          _iterator28.f();
         }
       }
     }
@@ -22785,30 +22676,20 @@ function (_Emitter) {
   }, {
     key: "_finished",
     value: function _finished(files, responseText, e) {
-      var _iteratorNormalCompletion29 = true;
-      var _didIteratorError29 = false;
-      var _iteratorError29 = undefined;
+      var _iterator29 = _createForOfIteratorHelper(files),
+          _step29;
 
       try {
-        for (var _iterator29 = files[Symbol.iterator](), _step29; !(_iteratorNormalCompletion29 = (_step29 = _iterator29.next()).done); _iteratorNormalCompletion29 = true) {
+        for (_iterator29.s(); !(_step29 = _iterator29.n()).done;) {
           var file = _step29.value;
           file.status = Dropzone.SUCCESS;
           this.emit("success", file, responseText, e);
           this.emit("complete", file);
         }
       } catch (err) {
-        _didIteratorError29 = true;
-        _iteratorError29 = err;
+        _iterator29.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion29 && _iterator29["return"] != null) {
-            _iterator29["return"]();
-          }
-        } finally {
-          if (_didIteratorError29) {
-            throw _iteratorError29;
-          }
-        }
+        _iterator29.f();
       }
 
       if (this.options.uploadMultiple) {
@@ -22825,30 +22706,20 @@ function (_Emitter) {
   }, {
     key: "_errorProcessing",
     value: function _errorProcessing(files, message, xhr) {
-      var _iteratorNormalCompletion30 = true;
-      var _didIteratorError30 = false;
-      var _iteratorError30 = undefined;
+      var _iterator30 = _createForOfIteratorHelper(files),
+          _step30;
 
       try {
-        for (var _iterator30 = files[Symbol.iterator](), _step30; !(_iteratorNormalCompletion30 = (_step30 = _iterator30.next()).done); _iteratorNormalCompletion30 = true) {
+        for (_iterator30.s(); !(_step30 = _iterator30.n()).done;) {
           var file = _step30.value;
           file.status = Dropzone.ERROR;
           this.emit("error", file, message, xhr);
           this.emit("complete", file);
         }
       } catch (err) {
-        _didIteratorError30 = true;
-        _iteratorError30 = err;
+        _iterator30.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion30 && _iterator30["return"] != null) {
-            _iterator30["return"]();
-          }
-        } finally {
-          if (_didIteratorError30) {
-            throw _iteratorError30;
-          }
-        }
+        _iterator30.f();
       }
 
       if (this.options.uploadMultiple) {
@@ -22875,7 +22746,7 @@ function (_Emitter) {
 }(Emitter);
 
 Dropzone.initClass();
-Dropzone.version = "5.7.0"; // This is a map of options for your different dropzones. Add configurations
+Dropzone.version = "5.7.2"; // This is a map of options for your different dropzones. Add configurations
 // to this object for your different dropzone elemens.
 //
 // Example:
@@ -22930,12 +22801,12 @@ Dropzone.discover = function () {
     var checkElements = function checkElements(elements) {
       return function () {
         var result = [];
-        var _iteratorNormalCompletion31 = true;
-        var _didIteratorError31 = false;
-        var _iteratorError31 = undefined;
+
+        var _iterator31 = _createForOfIteratorHelper(elements),
+            _step31;
 
         try {
-          for (var _iterator31 = elements[Symbol.iterator](), _step31; !(_iteratorNormalCompletion31 = (_step31 = _iterator31.next()).done); _iteratorNormalCompletion31 = true) {
+          for (_iterator31.s(); !(_step31 = _iterator31.n()).done;) {
             var el = _step31.value;
 
             if (/(^| )dropzone($| )/.test(el.className)) {
@@ -22945,18 +22816,9 @@ Dropzone.discover = function () {
             }
           }
         } catch (err) {
-          _didIteratorError31 = true;
-          _iteratorError31 = err;
+          _iterator31.e(err);
         } finally {
-          try {
-            if (!_iteratorNormalCompletion31 && _iterator31["return"] != null) {
-              _iterator31["return"]();
-            }
-          } finally {
-            if (_didIteratorError31) {
-              throw _iteratorError31;
-            }
-          }
+          _iterator31.f();
         }
 
         return result;
@@ -22969,12 +22831,12 @@ Dropzone.discover = function () {
 
   return function () {
     var result = [];
-    var _iteratorNormalCompletion32 = true;
-    var _didIteratorError32 = false;
-    var _iteratorError32 = undefined;
+
+    var _iterator32 = _createForOfIteratorHelper(dropzones),
+        _step32;
 
     try {
-      for (var _iterator32 = dropzones[Symbol.iterator](), _step32; !(_iteratorNormalCompletion32 = (_step32 = _iterator32.next()).done); _iteratorNormalCompletion32 = true) {
+      for (_iterator32.s(); !(_step32 = _iterator32.n()).done;) {
         var dropzone = _step32.value;
 
         // Create a dropzone unless auto discover has been disabled for specific element
@@ -22985,18 +22847,9 @@ Dropzone.discover = function () {
         }
       }
     } catch (err) {
-      _didIteratorError32 = true;
-      _iteratorError32 = err;
+      _iterator32.e(err);
     } finally {
-      try {
-        if (!_iteratorNormalCompletion32 && _iterator32["return"] != null) {
-          _iterator32["return"]();
-        }
-      } finally {
-        if (_didIteratorError32) {
-          throw _iteratorError32;
-        }
-      }
+      _iterator32.f();
     }
 
     return result;
@@ -23025,12 +22878,11 @@ Dropzone.isBrowserSupported = function () {
       capableBrowser = false;
     } else {
       // The browser supports the API, but may be blacklisted.
-      var _iteratorNormalCompletion33 = true;
-      var _didIteratorError33 = false;
-      var _iteratorError33 = undefined;
+      var _iterator33 = _createForOfIteratorHelper(Dropzone.blacklistedBrowsers),
+          _step33;
 
       try {
-        for (var _iterator33 = Dropzone.blacklistedBrowsers[Symbol.iterator](), _step33; !(_iteratorNormalCompletion33 = (_step33 = _iterator33.next()).done); _iteratorNormalCompletion33 = true) {
+        for (_iterator33.s(); !(_step33 = _iterator33.n()).done;) {
           var regex = _step33.value;
 
           if (regex.test(navigator.userAgent)) {
@@ -23039,18 +22891,9 @@ Dropzone.isBrowserSupported = function () {
           }
         }
       } catch (err) {
-        _didIteratorError33 = true;
-        _iteratorError33 = err;
+        _iterator33.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion33 && _iterator33["return"] != null) {
-            _iterator33["return"]();
-          }
-        } finally {
-          if (_didIteratorError33) {
-            throw _iteratorError33;
-          }
-        }
+        _iterator33.f();
       }
     }
   } else {
@@ -23142,56 +22985,37 @@ Dropzone.getElements = function (els, name) {
     elements = [];
 
     try {
-      var _iteratorNormalCompletion34 = true;
-      var _didIteratorError34 = false;
-      var _iteratorError34 = undefined;
+      var _iterator34 = _createForOfIteratorHelper(els),
+          _step34;
 
       try {
-        for (var _iterator34 = els[Symbol.iterator](), _step34; !(_iteratorNormalCompletion34 = (_step34 = _iterator34.next()).done); _iteratorNormalCompletion34 = true) {
+        for (_iterator34.s(); !(_step34 = _iterator34.n()).done;) {
           el = _step34.value;
           elements.push(this.getElement(el, name));
         }
       } catch (err) {
-        _didIteratorError34 = true;
-        _iteratorError34 = err;
+        _iterator34.e(err);
       } finally {
-        try {
-          if (!_iteratorNormalCompletion34 && _iterator34["return"] != null) {
-            _iterator34["return"]();
-          }
-        } finally {
-          if (_didIteratorError34) {
-            throw _iteratorError34;
-          }
-        }
+        _iterator34.f();
       }
     } catch (e) {
       elements = null;
     }
   } else if (typeof els === "string") {
     elements = [];
-    var _iteratorNormalCompletion35 = true;
-    var _didIteratorError35 = false;
-    var _iteratorError35 = undefined;
+
+    var _iterator35 = _createForOfIteratorHelper(document.querySelectorAll(els)),
+        _step35;
 
     try {
-      for (var _iterator35 = document.querySelectorAll(els)[Symbol.iterator](), _step35; !(_iteratorNormalCompletion35 = (_step35 = _iterator35.next()).done); _iteratorNormalCompletion35 = true) {
+      for (_iterator35.s(); !(_step35 = _iterator35.n()).done;) {
         el = _step35.value;
         elements.push(el);
       }
     } catch (err) {
-      _didIteratorError35 = true;
-      _iteratorError35 = err;
+      _iterator35.e(err);
     } finally {
-      try {
-        if (!_iteratorNormalCompletion35 && _iterator35["return"] != null) {
-          _iterator35["return"]();
-        }
-      } finally {
-        if (_didIteratorError35) {
-          throw _iteratorError35;
-        }
-      }
+      _iterator35.f();
     }
   } else if (els.nodeType != null) {
     elements = [els];
@@ -23228,12 +23052,12 @@ Dropzone.isValidFile = function (file, acceptedFiles) {
   acceptedFiles = acceptedFiles.split(",");
   var mimeType = file.type;
   var baseMimeType = mimeType.replace(/\/.*$/, "");
-  var _iteratorNormalCompletion36 = true;
-  var _didIteratorError36 = false;
-  var _iteratorError36 = undefined;
+
+  var _iterator36 = _createForOfIteratorHelper(acceptedFiles),
+      _step36;
 
   try {
-    for (var _iterator36 = acceptedFiles[Symbol.iterator](), _step36; !(_iteratorNormalCompletion36 = (_step36 = _iterator36.next()).done); _iteratorNormalCompletion36 = true) {
+    for (_iterator36.s(); !(_step36 = _iterator36.n()).done;) {
       var validType = _step36.value;
       validType = validType.trim();
 
@@ -23253,18 +23077,9 @@ Dropzone.isValidFile = function (file, acceptedFiles) {
       }
     }
   } catch (err) {
-    _didIteratorError36 = true;
-    _iteratorError36 = err;
+    _iterator36.e(err);
   } finally {
-    try {
-      if (!_iteratorNormalCompletion36 && _iterator36["return"] != null) {
-        _iterator36["return"]();
-      }
-    } finally {
-      if (_didIteratorError36) {
-        throw _iteratorError36;
-      }
-    }
+    _iterator36.f();
   }
 
   return false;
@@ -23356,9 +23171,7 @@ var drawImageIOSFix = function drawImageIOSFix(ctx, img, sx, sy, sw, sh, dx, dy,
 // http://elicon.blog57.fc2.com/blog-entry-206.html
 
 
-var ExifRestore =
-/*#__PURE__*/
-function () {
+var ExifRestore = /*#__PURE__*/function () {
   function ExifRestore() {
     _classCallCheck(this, ExifRestore);
   }
@@ -44721,17 +44534,6 @@ module.exports = function(module) {
 
 /***/ }),
 
-/***/ "./resources/css/main.css":
-/*!********************************!*\
-  !*** ./resources/css/main.css ***!
-  \********************************/
-/*! no static exports found */
-/***/ (function(module, exports) {
-
-// removed by extract-text-webpack-plugin
-
-/***/ }),
-
 /***/ "./resources/js/app.js":
 /*!*****************************!*\
   !*** ./resources/js/app.js ***!
@@ -44765,15 +44567,26 @@ window.axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
 
 /***/ }),
 
+/***/ "./resources/sass/app.scss":
+/*!*********************************!*\
+  !*** ./resources/sass/app.scss ***!
+  \*********************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+// removed by extract-text-webpack-plugin
+
+/***/ }),
+
 /***/ 0:
-/*!************************************************************!*\
-  !*** multi ./resources/js/app.js ./resources/css/main.css ***!
-  \************************************************************/
+/*!*************************************************************!*\
+  !*** multi ./resources/js/app.js ./resources/sass/app.scss ***!
+  \*************************************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
 __webpack_require__(/*! /Users/cristianiosif/Sites/lartisan-starter/resources/js/app.js */"./resources/js/app.js");
-module.exports = __webpack_require__(/*! /Users/cristianiosif/Sites/lartisan-starter/resources/css/main.css */"./resources/css/main.css");
+module.exports = __webpack_require__(/*! /Users/cristianiosif/Sites/lartisan-starter/resources/sass/app.scss */"./resources/sass/app.scss");
 
 
 /***/ })

@@ -10,12 +10,12 @@
 			<h2 class="text-2xl font-hairline font-sans mb-6">Example Table</h2>
 
             <table class="w-full" x-data="tableData()">
-                <thead class="text-gray-600">
+                <thead>
                     <tr class="border-b border-gray-200">
                         <template x-for="heading in headings">
-                            <th class="px-4 py-2 font-hairline text-lg text-red-600" x-text="heading"></th>
+                            <th class="px-4 py-2 font-hairline text-lg text-primary" x-text="heading"></th>
                         </template>
-                        <th class="w-2/12 px-4 py-2 font-hairline text-lg text-red-600">{{ __('Actions') }}</th>
+                        <th class="w-2/12 px-4 py-2 font-hairline text-lg text-primary">{{ __('Actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>

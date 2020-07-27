@@ -1,6 +1,20 @@
 module.exports = {
     theme: {
-        extend: {},
+        extend: {
+            textColor: {
+                primary: "var(--text-color-primary)",
+                secondary: "var(--text-color-secondary)"
+            },
+            backgroundColor: {
+                primary: "var(--bg-color-primary)",
+                secondary: "var(--bg-color-secondary)",
+                success: "var(--bg-color-success)",
+                danger: "var(--bg-color-danger)",
+                warning: "var(--bg-color-warning)",
+                info: "var(--bg-color-info)"
+            },
+            borderColor: {}
+        },
         spinner: () => ({
             default: {
                 color: "#dae1e7",
@@ -10,35 +24,10 @@ module.exports = {
             }
         }),
         gradients: theme => ({
-            "gradient-red": [
+            gradient: [
                 "30deg",
-                theme("colors.red.600"),
-                theme("colors.red.700")
-            ],
-            "gradient-green": [
-                "30deg",
-                theme("colors.green.600"),
-                theme("colors.green.700")
-            ],
-            "gradient-blue": [
-                "30deg",
-                theme("colors.blue.600"),
-                theme("colors.blue.700")
-            ],
-            "gradient-orange": [
-                "30deg",
-                theme("colors.orange.600"),
-                theme("colors.orange.700")
-            ],
-            "gradient-indigo": [
-                "30deg",
-                theme("colors.indigo.600"),
-                theme("colors.indigo.700")
-            ],
-            "gradient-gray": [
-                "30deg",
-                theme("colors.gray.600"),
-                theme("colors.gray.700")
+                "var(--bg-gradient-primary)",
+                "var(--bg-gradient-secondary)"
             ]
         })
     },
