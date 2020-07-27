@@ -15,7 +15,7 @@
 					class="right-nav md:flex md:flex-row md:items-center" 
 					:class="{ 'hidden': !isOpen }"
 				>
-					<li class="notifications relative text-sm px-2 py-2 ml-2 hover:bg-red-400 md:hover:bg-transparent hover:text-red-200" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false" x-cloak>
+					<li class="theme-picker relative text-sm px-2 py-2 ml-2 text-white text-opacity-75 md:hover:bg-transparent hover:text-opacity-100" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false" x-cloak>
 						<a @click.prevent="isCollapsed = !isCollapsed" href="#" class="flex">
 							<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M12.135 9.304c-2.558-1.879-6.7 1.17-7.632 5.284-.718 3.17-4.043 3.04-3.996 3.464.046.424 7.473 1.103 10.156-1.123 2.506-2.08 4.277-5.564 1.472-7.625zm2.203-7.796l-3.363 5.156c1.102.179 3.635 1.885 4.121 3.109l4.396-4.246c-.526-1.503-3.438-3.844-5.154-4.019z"/></svg>
 							<span class="md:hidden flex-auto" href="#">Theme Picker</span>
@@ -27,14 +27,14 @@
 						</a>
 						<ul 
 							:class="{ 'hidden': !isCollapsed }" 
-							class="md:w-48 mt-2 mr-5 md:absolute md:right-0 md:z-10 md:bg-white md:text-gray-500 md:rounded-md md:overflow-hidden md:shadow-md"
+							class="py-2 md:w-48 mt-2 mr-5 md:absolute md:right-0 md:z-10 md:bg-white md:text-secondary md:rounded-md md:overflow-hidden md:shadow-md"
 						>
-							<li class="p-2 ml-4 md:px-4 md:py-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-gray-500"><a href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-blue' }); isCollapsed = !isCollapsed">Theme Blue</a></li>
-							<li class="p-2 ml-4 md:px-4 md:py-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-gray-500"><a href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-red' }); isCollapsed = !isCollapsed">Theme Red</a></li>
+							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-blue' }); isCollapsed = !isCollapsed">Theme Blue</a></li>
+							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-red' }); isCollapsed = !isCollapsed">Theme Red</a></li>
 						</ul>
 					</li>
 
-					<li class="notifications relative text-sm px-2 py-2 ml-2 hover:bg-red-400 md:hover:bg-transparent hover:text-red-200" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false" x-cloak>
+					<li class="notifications relative text-sm px-2 py-2 ml-2 text-white text-opacity-75 md:hover:bg-transparent hover:text-opacity-100" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false" x-cloak>
 						<a @click.prevent="isCollapsed = !isCollapsed" href="#" class="flex">
 							<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M14.65 8.512c-2.28-4.907-3.466-6.771-7.191-6.693-1.327.027-1.009-.962-2.021-.587-1.01.375-.143.924-1.177 1.773-2.902 2.383-2.635 4.587-1.289 9.84.567 2.213-1.367 2.321-.602 4.465.559 1.564 4.679 2.219 9.025.607 4.347-1.613 7.086-4.814 6.527-6.378-.765-2.145-2.311-.961-3.272-3.027zm-3.726 8.083c-3.882 1.44-7.072.594-7.207.217-.232-.65 1.253-2.816 5.691-4.463 4.438-1.647 6.915-1.036 7.174-.311.153.429-1.775 3.116-5.658 4.557zm-1.248-3.494c-2.029.753-3.439 1.614-4.353 2.389.643.584 1.847.726 3.046.281 1.527-.565 2.466-1.866 2.095-2.904l-.016-.036c-.251.082-.508.171-.772.27z"/></svg>
 							<span class="md:hidden flex-auto" href="#">Notifications</span>
@@ -46,14 +46,14 @@
 						</a>
 						<ul 
 							:class="{ 'hidden': !isCollapsed }" 
-							class="md:w-48 mt-2 mr-5 md:absolute md:right-0 md:z-10 md:bg-white md:text-gray-500 md:rounded-md md:overflow-hidden md:shadow-md"
+							class="py-2 md:w-48 mt-2 mr-5 md:absolute md:right-0 md:z-10 md:bg-white md:text-secondary md:rounded-md md:overflow-hidden md:shadow-md"
 						>
-							<li class="p-2 ml-4 md:px-4 md:py-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-gray-500">Action</li>
-							<li class="p-2 ml-4 md:px-4 md:py-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-gray-500">Another action</li>
+							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#">Action</a></li>
+							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#">Another action</a></li>
 						</ul>
 					</li>
 
-					<li class="profile relative text-sm px-2 py-2 ml-2 hover:bg-red-400 md:hover:bg-transparent hover:text-red-200" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false" x-cloak>
+					<li class="profile relative text-sm px-2 py-2 ml-2 text-white text-opacity-75 md:hover:bg-transparent hover:text-opacity-100" x-data="{ isCollapsed: false }" @click.away="isCollapsed = false" x-cloak>
 						<a @click.prevent="isCollapsed = !isCollapsed" href="#" class="flex">
 							{{-- <svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M7.725 2.146c-1.016.756-1.289 1.953-1.239 2.59.064.779.222 1.793.222 1.793s-.313.17-.313.854c.109 1.717.683.976.801 1.729.284 1.814.933 1.491.933 2.481 0 1.649-.68 2.42-2.803 3.334C3.196 15.845 1 17 1 19v1h18v-1c0-2-2.197-3.155-4.328-4.072-2.123-.914-2.801-1.684-2.801-3.334 0-.99.647-.667.932-2.481.119-.753.692-.012.803-1.729 0-.684-.314-.854-.314-.854s.158-1.014.221-1.793c.065-.817-.398-2.561-2.3-3.096-.333-.34-.558-.881.466-1.424-2.24-.105-2.761 1.067-3.954 1.929z"/></svg> --}}
 							<div class="w-4 h-4 md:w-6 md:h-6 rounded-full overflow-hidden mr-2">
@@ -69,16 +69,16 @@
 
 						<ul 
 							:class="{ 'hidden': !isCollapsed }" 
-							class="md:w-48 mt-2 mr-5 md:absolute md:right-0 md:z-10 md:bg-white md:text-gray-500 md:rounded-md md:overflow-hidden md:shadow-md"
+							class="py-2 md:w-48 mt-2 mr-5 md:absolute md:right-0 md:z-10 md:bg-white md:text-secondary md:rounded-md md:overflow-hidden md:shadow-md"
 						>
-							<li class="text-sm p-2 ml-4 md:px-4 md:py-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-gray-500">
-								<a class="flex items-center w-full" href="{{ url('admin/profile') }}">
+							<li class="text-sm ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary">
+								<a class="flex items-center p-2 md:p-4" href="{{ url('admin/profile') }}">
 									<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M7.725 2.146c-1.016.756-1.289 1.953-1.239 2.59.064.779.222 1.793.222 1.793s-.313.17-.313.854c.109 1.717.683.976.801 1.729.284 1.814.933 1.491.933 2.481 0 1.649-.68 2.42-2.803 3.334C3.196 15.845 1 17 1 19v1h18v-1c0-2-2.197-3.155-4.328-4.072-2.123-.914-2.801-1.684-2.801-3.334 0-.99.647-.667.932-2.481.119-.753.692-.012.803-1.729 0-.684-.314-.854-.314-.854s.158-1.014.221-1.793c.065-.817-.398-2.561-2.3-3.096-.333-.34-.558-.881.466-1.424-2.24-.105-2.761 1.067-3.954 1.929z"/></svg>
 									{{ __('Profile') }}
 								</a>
 							</li>
-							<li class="text-sm p-2 ml-4 md:px-4 md:py-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-gray-500">
-								<a class="flex items-center w-full" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+							<li class="text-sm ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary">
+								<a class="flex items-center p-2 md:p-4" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
 									<svg class="w-4 md:w-5 mr-2 fill-current" viewBox="0 0 20 20"><path d="M19 10l-6-5v3H6v4h7v3l6-5zM3 3h8V1H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H3V3z"/></svg>
 									{{ __('Logout') }}
 								</a>

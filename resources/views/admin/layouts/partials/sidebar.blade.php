@@ -1,5 +1,5 @@
 <!-- Sidebar -->
-<aside class="sidebar md:w-64 max-h-full bg-gray-200 shadow-lg flex flex-col justify-between">
+<aside class="sidebar md:w-64 max-h-full bg-secondary shadow-lg flex flex-col justify-between">
 	<nav class="sidebar-nav" x-data="{ isOpen: false }" @click.away="isOpen = false">
 		<div class="nav-brand p-6 my-1 flex items-center justify-between">
 			<a href="{{ url('admin/home') }}" class="">

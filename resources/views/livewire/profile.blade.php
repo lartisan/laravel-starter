@@ -52,8 +52,7 @@
 
                     <!-- Update Profile Buttons -->
                     <div class="flex items-center">
-                        <button class="shadow bg-red-500 hover:bg-red-400 focus:shadow-outline focus:outline-none uppercase tracking-wide text-white text-xs font-bold py-2 px-4 rounded" type="submit">{{ __('Update Info') }}</button>
-                        {{-- <a class="shadow bg-gray-500 hover:bg-gray-400 focus:shadow-outline focus:outline-none uppercase tracking-wide text-white text-xs font-bold py-2 px-4 ml-4 rounded" href="{{ redirect()->back() }}">{{ __('Cancel') }}</a> --}}
+                        <button class="shadow bg-gradient focus:shadow-outline focus:outline-none uppercase tracking-wide text-white text-opacity-75 hover:text-opacity-100 hover:shadow-lg text-xs font-bold py-3 px-4 rounded" type="submit">{{ __('Update Info') }}</button>
                     </div> <!-- ./ Update Profile Buttons -->
                 </div>
             </div>
@@ -106,7 +105,7 @@
 
                 <!-- Update Password Buttons -->
                 <div class="flex items-center">
-                        <button class="shadow bg-red-500 hover:bg-red-400 focus:shadow-outline focus:outline-none uppercase tracking-wide text-white text-xs font-bold py-2 px-4 rounded" type="submit">{{ __('Change Password') }}</button>
+                        <button class="shadow bg-gradient focus:shadow-outline focus:outline-none uppercase tracking-wide text-white text-opacity-75 hover:text-opacity-100 hover:shadow-lg text-xs font-bold py-3 px-4 rounded" type="submit">{{ __('Change Password') }}</button>
                 </div> <!-- ./ Update Password Buttons -->
             </form>
         </div>
