@@ -29,8 +29,8 @@
 							:class="{ 'hidden': !isCollapsed }" 
 							class="py-2 md:w-48 mt-2 mr-5 md:absolute md:right-0 md:z-10 md:bg-white md:text-secondary md:rounded-md md:overflow-hidden md:shadow-md"
 						>
-							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-blue' }); isCollapsed = !isCollapsed">Theme Blue</a></li>
-							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-red' }); isCollapsed = !isCollapsed">Theme Red</a></li>
+							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-blue' }); localStorage.setItem('themeColor', 'theme-blue'); isCollapsed = !isCollapsed">Theme Blue</a></li>
+							<li class="ml-4 md:ml-0 md:hover:bg-gray-200 md:hover:text-secondary"><a class="flex items-center p-2 md:p-4" href="#" @click="$dispatch('theme-changed', { themeColor: 'theme-red' }); localStorage.setItem('themeColor', 'theme-red'); isCollapsed = !isCollapsed">Theme Red</a></li>
 						</ul>
 					</li>
 

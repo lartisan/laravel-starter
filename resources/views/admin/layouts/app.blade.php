@@ -22,7 +22,10 @@
 	@stack('styles')
 </head>
 
-<body x-data="{ themeColor: 'theme-red' }" @theme-changed="themeColor = $event.detail.themeColor">
+<body 
+	x-data="{ themeColor: localStorage.getItem('themeColor') || 'theme-red' }"
+	x-init="$watch('themeColor', (theme) => localStorage.setItem('themeColor', theme))"
+	@theme-changed="themeColor = $event.detail.themeColor">
 	
 	<!-- Wrapper -->
 	<div :class="themeColor" class="wrapper bg-primary text-secondary font-sans font-thin flex flex-col min-h-screen md:flex-row md:flex-row">
